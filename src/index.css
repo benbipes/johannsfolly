@@ -308,6 +308,27 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   font-family: 'Courier New', monospace;
 }
 
+/* ── PIN Input ──────────────────────────────────────────────── */
+.pin-row {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+}
+.pin-digit {
+  width: 3rem;
+  height: 3.5rem;
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  background: var(--surface2);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+  font-size: 1.5rem;
+}
+.pin-digit:focus { outline: none; border-color: var(--accent); }
+
 /* ── Misc ───────────────────────────────────────────────────── */
 .round-badge {
   background: var(--surface2);
