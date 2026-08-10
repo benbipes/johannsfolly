@@ -1,5 +1,40 @@
 import { useEffect, useRef, useCallback } from 'react';
 
+const LOBBY_CHANNEL = 'jf:lobby';
+const ROOM_PREFIX = 'room:';
+
+/**
+ * Announce a room to other lobby tabs via BroadcastChannel and localStorage.
+ * @param {string} roomCode
+ * @param {'open'|'closed'} status
+ */
+export function announceRoom(roomCode, status) {
+  localStorage.setItem(`${ROOM_PREFIX}${roomCode}`, JSON.stringify({ code: roomCode, status, updatedAt: Date.now() }));
+  try {
+    const ch = new BroadcastChannel(LOBBY_CHANNEL);
+    ch.postMessage({ type: 'room_update', roomCode, status });
+    ch.close();
+  } catch { /* ignore */ }
+}
+
+/**
+ * Get all open rooms stored in localStorage.
+ * @returns {{ code: string }[]}
+ */
+export function getOpenRooms() {
+  const rooms = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(ROOM_PREFIX)) {
+      try {
+        const val = JSON.parse(localStorage.getItem(key));
+        if (val && val.status === 'open') rooms.push({ code: val.code });
+      } catch { /* ignore */ }
+    }
+  }
+  return rooms;
+}
+
 /**
  * Syncs game state across browser tabs/windows on the same origin using
  * BroadcastChannel + localStorage as a fallback.

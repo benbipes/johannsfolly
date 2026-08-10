@@ -1,10 +1,33 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { getOpenRooms } from '../useGameSync.js';
 
 export default function Lobby({ onCreateRoom, onJoinRoom, onSolo }) {
   const [hostName, setHostName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [joinName, setJoinName] = useState('');
   const [error, setError] = useState('');
+  const [availableRooms, setAvailableRooms] = useState(() => getOpenRooms());
+  const channelRef = useRef(null);
+
+  // Listen for room announcements from other tabs
+  useEffect(() => {
+    const channel = new BroadcastChannel('jf:lobby');
+    channelRef.current = channel;
+    channel.onmessage = () => {
+      setAvailableRooms(getOpenRooms());
+    };
+    // Also refresh on storage events (same browser, different tab)
+    function onStorage(e) {
+      if (e.key && e.key.startsWith('room:')) {
+        setAvailableRooms(getOpenRooms());
+      }
+    }
+    window.addEventListener('storage', onStorage);
+    return () => {
+      channel.close();
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
   const [joinError, setJoinError] = useState('');
 
   function handleCreate() {
@@ -29,6 +52,16 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onSolo }) {
       return;
     }
     setJoinError('');
+    onJoinRoom(code, name);
+  }
+
+  function handleJoinRoom(code) {
+    const name = joinName.trim();
+    if (!name) {
+      setError('Please enter your name before joining a room.');
+      return;
+    }
+    setError('');
     onJoinRoom(code, name);
   }
 
@@ -96,6 +129,29 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onSolo }) {
         >
           Join Room
         </button>
+
+        {availableRooms.length > 0 && (
+          <>
+            <p className="section-title" style={{ margin: '0.75rem 0 0.5rem' }}>
+              Available Rooms
+              <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.8rem', marginLeft: '0.5rem' }}>
+                (enter your name then tap to join)
+              </span>
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {availableRooms.map(room => (
+                <button
+                  key={room.code}
+                  className="btn-secondary"
+                  style={{ width: '100%', letterSpacing: '0.1em' }}
+                  onClick={() => handleJoinRoom(room.code)}
+                >
+                  🎯 Room <strong>{room.code}</strong>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

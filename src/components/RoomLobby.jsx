@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { announceRoom } from '../useGameSync.js';
 
 const MAX_PLAYERS = 10;
 
@@ -19,12 +20,12 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
     });
   }
 
-  // Host: register this room in localStorage
+  // Host: announce room creation and keep it open; close on unmount
   useEffect(() => {
     if (!isHost) return;
-    const room = { code: roomCode, players: names, createdAt: Date.now() };
-    localStorage.setItem(`room:${roomCode}`, JSON.stringify(room));
-  }, [roomCode, isHost, names]);
+    announceRoom(roomCode, 'open');
+    return () => announceRoom(roomCode, 'closed');
+  }, [roomCode, isHost]);
 
   // Joiner: register self in localStorage so host can discover them
   useEffect(() => {
@@ -103,7 +104,8 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
   function handleStart() {
     const filled = names.map(n => n.trim()).filter(Boolean);
     if (filled.length < 1) return;
-    // Clean up room and joiner keys from storage when game starts
+    // Mark room as closed and clean up storage when game starts
+    announceRoom(roomCode, 'closed');
     localStorage.removeItem(`room:${roomCode}`);
     const prefix = `room-player:${roomCode}:`;
     for (let i = localStorage.length - 1; i >= 0; i--) {
