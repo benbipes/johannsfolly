@@ -27,13 +27,18 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
     return () => announceRoom(roomCode, 'closed');
   }, [roomCode, isHost]);
 
-  // Joiner: register self in localStorage so host can discover them
+  // Joiner: register self in localStorage so host can discover them,
+  // and periodically re-announce via BroadcastChannel to handle the case
+  // where the host tab wasn't listening when we first joined.
   useEffect(() => {
     if (isHost || !myPlayerName) return;
     localStorage.setItem(`room-player:${roomCode}:${myPlayerName}`, '1');
     const channel = new BroadcastChannel(`jf:room:${roomCode}`);
-    channel.postMessage({ type: 'room_joined', playerName: myPlayerName });
+    const announce = () => channel.postMessage({ type: 'room_joined', playerName: myPlayerName });
+    announce();
+    const id = setInterval(announce, 2000);
     return () => {
+      clearInterval(id);
       channel.postMessage({ type: 'room_left', playerName: myPlayerName });
       channel.close();
       localStorage.removeItem(`room-player:${roomCode}:${myPlayerName}`);
