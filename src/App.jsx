@@ -175,6 +175,7 @@ export default function App() {
       playerIndex={g.currentPlayerIndex}
       onTurnComplete={handleTurnComplete}
       onShowScoreboard={() => setView('scoreboard')}
+      onQuit={handleRestart}
     />
   );
 }

@@ -6,9 +6,9 @@
   --surface: #1e293b;
   --surface2: #293548;
   --border: #334155;
-  --accent: #f59e0b;
-  --accent2: #10b981;
-  --danger: #ef4444;
+  --accent: #f59e0b;     /* amber — single hits, progress */
+  --accent2: #a855f7;    /* purple — triple, perfect, finished (replaces green for colorblind safety) */
+  --danger: #ef4444;     /* red — miss */
   --text: #f1f5f9;
   --muted: #94a3b8;
   --radius: 12px;
@@ -134,7 +134,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 .score-row.finished {
   border-color: var(--accent2);
-  background: #0d1f17;
+  background: #170d24;
 }
 .score-rank { width: 1.5rem; text-align: center; color: var(--muted); font-weight: 700; }
 .score-name { flex: 1; font-weight: 600; }
@@ -197,7 +197,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .dart-slot.miss { border-color: var(--danger); color: var(--danger); background: #1f0a0a; }
 .dart-slot.single { border-color: var(--accent); color: var(--accent); background: #1f1600; }
 .dart-slot.double { border-color: #60a5fa; color: #60a5fa; background: #0a1525; }
-.dart-slot.triple { border-color: var(--accent2); color: var(--accent2); background: #041510; }
+.dart-slot.triple { border-color: var(--accent2); color: var(--accent2); background: #150a20; }
 .dart-slot .dart-icon { font-size: 1.5rem; }
 
 .score-btns {
@@ -219,10 +219,10 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-miss { background: #2a1010; border: 2px solid var(--danger); color: var(--danger); }
 .btn-single { background: #2a1e00; border: 2px solid var(--accent); color: var(--accent); }
 .btn-double { background: #0a1a2f; border: 2px solid #60a5fa; color: #60a5fa; }
-.btn-triple { background: #041a10; border: 2px solid var(--accent2); color: var(--accent2); }
+.btn-triple { background: #1a0a2a; border: 2px solid var(--accent2); color: var(--accent2); }
 
 .perfect-banner {
-  background: linear-gradient(135deg, #1e3a1e, #0d2d1a);
+  background: linear-gradient(135deg, #1e153a, #150d2d);
   border: 2px solid var(--accent2);
   border-radius: var(--radius);
   padding: 1rem;
@@ -247,6 +247,46 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   border-radius: 8px;
 }
 .num-btn.selected { background: var(--accent); color: #000; border-color: var(--accent); }
+
+/* ── Hand-off screen ────────────────────────────────────────── */
+.handoff-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 1rem;
+  padding: 2rem 1rem;
+}
+.handoff-screen .handoff-icon { font-size: 4rem; }
+.handoff-screen h2 { font-size: 1.5rem; }
+.handoff-screen p { color: var(--muted); font-size: 0.95rem; }
+
+/* ── Mini scoreboard (inline on scoring screen) ─────────────── */
+.mini-scoreboard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.mini-score-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+.mini-score-row.current-player {
+  border-color: var(--accent);
+  background: #2a2010;
+}
+.mini-score-row.finished { border-color: var(--accent2); background: #170d24; }
+.mini-score-name { flex: 1; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini-score-target { font-weight: 800; color: var(--accent); font-size: 0.9rem; min-width: 2.5rem; text-align: right; }
+.mini-score-target.at-bull { color: var(--accent2); }
 
 /* ── Winner screen ──────────────────────────────────────────── */
 .winner-screen { text-align: center; padding: 2rem 1rem; }
