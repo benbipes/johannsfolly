@@ -76,6 +76,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 /* ── Setup Screen ──────────────────────────────────────────── */
 .setup-header { text-align: center; padding: 0.5rem 0; }
 .setup-header p { color: var(--muted); margin-top: 0.25rem; font-size: 0.9rem; }
+.app-logo { max-width: 280px; width: 100%; height: auto; }
 
 .player-list { display: flex; flex-direction: column; gap: 0.5rem; }
 .player-row {

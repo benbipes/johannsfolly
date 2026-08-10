@@ -27,7 +27,7 @@ export default function Setup({ onStart }) {
   return (
     <div className="screen">
       <div className="setup-header">
-        <h1>🎯 Johann&apos;s Folly</h1>
+        <img src="/logo.png" alt="Johann's Folly" className="app-logo" />
         <p>Enter player names (2–10 players)</p>
       </div>
 
