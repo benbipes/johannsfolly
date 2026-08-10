@@ -10,11 +10,6 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onSolo }) {
       setError('Room code must be 6 characters.');
       return;
     }
-    const raw = localStorage.getItem(`room:${code}`);
-    if (!raw) {
-      setError('Room not found. Check the code and try again.');
-      return;
-    }
     setError('');
     onJoinRoom(code);
   }
