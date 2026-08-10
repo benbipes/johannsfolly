@@ -10,9 +10,13 @@ const DART_OPTIONS = [
 
 const SLOT_ICONS = { miss: '✗', single: '🎯', double: '🎯🎯', triple: '🎯🎯🎯' };
 
-export default function ScoringScreen({ game, player, playerIndex, onTurnComplete, onShowScoreboard, onQuit }) {
+export default function ScoringScreen({ game, player, playerIndex, myPlayerName, onTurnComplete, onShowScoreboard, onQuit }) {
+  // Multi-device mode: if we know who "owns" this device, handle hand-off differently
+  const isMyTurn = !myPlayerName || player.name === myPlayerName;
+
   // Hand-off gate: show "pass device to player" before revealing scoring UI
-  const [ready, setReady] = useState(false);
+  // In multi-device mode, skip the gate for the identified player; show "waiting" for others
+  const [ready, setReady] = useState(isMyTurn);
 
   // darts: array of results for current "set" of 3
   const [darts, setDarts] = useState([]);
@@ -73,6 +77,68 @@ export default function ScoringScreen({ game, player, playerIndex, onTurnComplet
 
   // ── Hand-off gate ──────────────────────────────────────────────
   if (!ready) {
+    // Multi-device: it's not this player's turn — show waiting screen
+    if (!isMyTurn) {
+      const myPlayer = myPlayerName
+        ? game.players.find(p => p.name === myPlayerName)
+        : null;
+      return (
+        <div className="screen">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div className="round-badge">Round {game.round}</div>
+            <div className="spacer" />
+            <button
+              className="btn-danger"
+              style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
+              onClick={onQuit}
+            >
+              ✕ Quit
+            </button>
+          </div>
+
+          <div className="handoff-screen">
+            <div className="handoff-icon">⏳</div>
+            <h2>Wait for your turn</h2>
+            {myPlayerName && (
+              <p style={{ color: 'var(--accent)', fontWeight: 700 }}>{myPlayerName}</p>
+            )}
+            <p style={{ color: 'var(--muted)', marginTop: '0.25rem' }}>
+              <strong style={{ color: 'var(--text)' }}>{player.name}</strong> is throwing now…
+            </p>
+            {myPlayer && (
+              <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginTop: '0.5rem' }}>
+                Your target: <strong style={{ color: 'var(--accent)' }}>
+                  {TARGET_SEQUENCE[myPlayer.targetIndex]}
+                </strong>
+              </p>
+            )}
+          </div>
+
+          {/* Mini scoreboard visible while waiting */}
+          <div className="card">
+            <p className="section-title" style={{ marginBottom: '0.5rem' }}>Current Standings</p>
+            <div className="mini-scoreboard">
+              {sortedPlayers.map((p) => {
+                const isCurrent = p.originalIndex === playerIndex;
+                const isMe = p.name === myPlayerName;
+                const atBull = p.targetIndex === BULL_INDEX;
+                const target = TARGET_SEQUENCE[p.targetIndex];
+                return (
+                  <div key={p.originalIndex} className={`mini-score-row${isCurrent ? ' current-player' : ''}${p.finished ? ' finished' : ''}`}>
+                    <span className="mini-score-name">{p.finished ? '🏆 ' : ''}{p.name}{isMe ? ' (you)' : ''}</span>
+                    <span className={`mini-score-target${atBull ? ' at-bull' : ''}`}>
+                      {p.finished ? '🎯 Bull' : `→ ${target}`}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Single-device: pass device to the current player
     return (
       <div className="screen">
         {/* Header row with quit */}

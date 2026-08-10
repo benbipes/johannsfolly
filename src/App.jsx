@@ -8,6 +8,7 @@ import ScoringScreen from './components/ScoringScreen.jsx';
 import PlayoffScreen from './components/PlayoffScreen.jsx';
 
 import { createGame } from './gameLogic.js';
+import { useGameSync } from './useGameSync.js';
 
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -30,19 +31,30 @@ export default function App() {
   const [game, setGame] = useState(null);
   const [view, setView] = useState('lobby'); // 'lobby' | 'room' | 'scoring' | 'scoreboard' | 'playoff' | 'winner'
   const [roomCode, setRoomCode] = useState(null);
+  const [isHost, setIsHost] = useState(false);
+  const [myPlayerName, setMyPlayerName] = useState(null); // null = no identity (single-device mode)
   const [playoffPlayers, setPlayoffPlayers] = useState([]);
   const [finalWinners, setFinalWinners] = useState([]);
   const [playoffScores, setPlayoffScores] = useState({});
+
+  // Sync game state across tabs/devices in the same room
+  const { broadcast } = useGameSync(roomCode, useCallback((remoteGame) => {
+    setGame(remoteGame);
+    setView('scoring');
+  }, []));
 
   // --- Lobby ---
   function handleCreateRoom() {
     const code = generateRoomCode();
     setRoomCode(code);
+    setIsHost(true);
     setView('room');
   }
 
-  function handleJoinRoom(code) {
+  function handleJoinRoom(code, playerName) {
     setRoomCode(code);
+    setIsHost(false);
+    if (playerName) setMyPlayerName(playerName);
     setView('room');
   }
 
@@ -52,8 +64,11 @@ export default function App() {
   }
 
   // --- Room start ---
-  function handleRoomStart(playerNames) {
-    setGame(createGame(playerNames));
+  function handleRoomStart(playerNames, hostName) {
+    if (hostName) setMyPlayerName(hostName);
+    const newGame = createGame(playerNames);
+    setGame(newGame);
+    broadcast(newGame);
     setView('scoring');
   }
 
@@ -101,11 +116,14 @@ export default function App() {
         }
       }
 
+      // Broadcast the advanced state to other devices in the room
+      setTimeout(() => broadcast(advanced), 0);
+
       return advanced;
     });
 
     setView('scoring');
-  }, []);
+  }, [broadcast]);
 
   // --- Playoff complete ---
   function handlePlayoffComplete(winners, scores) {
@@ -121,6 +139,8 @@ export default function App() {
     setPlayoffScores({});
     setPlayoffPlayers([]);
     setRoomCode(null);
+    setIsHost(false);
+    setMyPlayerName(null);
     setView('lobby');
   }
 
@@ -134,8 +154,10 @@ export default function App() {
     return (
       <RoomLobby
         roomCode={roomCode}
+        isHost={isHost}
+        myPlayerName={myPlayerName}
         onStart={handleRoomStart}
-        onLeave={() => { setRoomCode(null); setView('lobby'); }}
+        onLeave={() => { setRoomCode(null); setIsHost(false); setMyPlayerName(null); setView('lobby'); }}
       />
     );
   }
@@ -211,6 +233,7 @@ export default function App() {
       game={g}
       player={currentPlayer}
       playerIndex={g.currentPlayerIndex}
+      myPlayerName={myPlayerName}
       onTurnComplete={handleTurnComplete}
       onShowScoreboard={() => setView('scoreboard')}
       onQuit={handleRestart}
