@@ -44,10 +44,11 @@ export default function App() {
   }, []));
 
   // --- Lobby ---
-  function handleCreateRoom() {
+  function handleCreateRoom(hostName) {
     const code = generateRoomCode();
     setRoomCode(code);
     setIsHost(true);
+    if (hostName) setMyPlayerName(hostName);
     setView('room');
   }
 
@@ -64,8 +65,7 @@ export default function App() {
   }
 
   // --- Room start ---
-  function handleRoomStart(playerNames, hostName) {
-    if (hostName) setMyPlayerName(hostName);
+  function handleRoomStart(playerNames) {
     const newGame = createGame(playerNames);
     setGame(newGame);
     broadcast(newGame);
