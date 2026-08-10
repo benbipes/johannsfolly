@@ -1,14 +1,20 @@
 import { useState } from 'react';
 import { TARGET_SEQUENCE, BULL_INDEX, processDarts } from '../gameLogic.js';
 
-const DART_OPTIONS = [
-  { key: 'miss',   label: 'Miss',   sub: '0 pts',  cls: 'btn-miss' },
-  { key: 'single', label: 'Hit',    sub: '+1',      cls: 'btn-single' },
-  { key: 'double', label: 'Double', sub: '+2',      cls: 'btn-double' },
-  { key: 'triple', label: 'Triple', sub: '+3',      cls: 'btn-triple' },
-];
-
 const SLOT_ICONS = { miss: '✗', single: '🎯', double: '🎯🎯', triple: '🎯🎯🎯' };
+
+function getTargetsForMarks(targetIndex, marks) {
+  const targets = [];
+  let nextTargetIndex = targetIndex;
+
+  for (let i = 0; i < marks; i += 1) {
+    targets.push(TARGET_SEQUENCE[nextTargetIndex]);
+    if (nextTargetIndex === BULL_INDEX) break;
+    nextTargetIndex = Math.min(nextTargetIndex + 1, BULL_INDEX);
+  }
+
+  return targets.join(' → ');
+}
 
 export default function ScoringScreen({ game, player, playerIndex, myPlayerName, onTurnComplete, onShowScoreboard, onQuit }) {
   // Multi-device mode: if we know who "owns" this device, handle hand-off differently
@@ -29,7 +35,17 @@ export default function ScoringScreen({ game, player, playerIndex, myPlayerName,
   const dartsInSet = darts.length;
   const setDone = dartsInSet === 3;
 
-  const currentTarget = TARGET_SEQUENCE[simulatedTargetIndex];
+  const currentTargetIndex = processDarts(
+    { targetIndex: simulatedTargetIndex },
+    darts,
+  ).newTargetIndex;
+  const currentTarget = TARGET_SEQUENCE[currentTargetIndex];
+  const dartOptions = [
+    { key: 'miss', label: 'Miss', sub: String(currentTarget), cls: 'btn-miss' },
+    { key: 'single', label: 'Hit', sub: getTargetsForMarks(currentTargetIndex, 1), cls: 'btn-single' },
+    { key: 'double', label: 'Double', sub: getTargetsForMarks(currentTargetIndex, 2), cls: 'btn-double' },
+    { key: 'triple', label: 'Triple', sub: getTargetsForMarks(currentTargetIndex, 3), cls: 'btn-triple' },
+  ];
 
   function handleDart(type) {
     if (setDone) return;
@@ -62,7 +78,7 @@ export default function ScoringScreen({ game, player, playerIndex, myPlayerName,
     setDarts(prev => prev.slice(0, -1));
   }
 
-  const progress = simulatedTargetIndex / BULL_INDEX;
+  const progress = currentTargetIndex / BULL_INDEX;
 
   // Sort players by progress for the mini scoreboard
   const sortedPlayers = game.players
@@ -279,7 +295,7 @@ export default function ScoringScreen({ game, player, playerIndex, myPlayerName,
         <>
           <p className="section-title" style={{ textAlign: 'center' }}>Dart {dartsInSet + 1} of 3</p>
           <div className="score-btns">
-            {DART_OPTIONS.map(opt => (
+            {dartOptions.map(opt => (
               <button
                 key={opt.key}
                 className={`score-btn ${opt.cls}`}
