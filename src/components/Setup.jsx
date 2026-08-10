@@ -1,10 +1,10 @@
 import { useState } from 'react';
 
 const MAX_PLAYERS = 10;
-const MIN_PLAYERS = 2;
 
-export default function Setup({ onStart }) {
-  const [names, setNames] = useState(['', '']);
+export default function Setup({ onStart, solo = false, initialNames = null }) {
+  const MIN_PLAYERS = solo ? 1 : 2;
+  const [names, setNames] = useState(initialNames ?? (solo ? [''] : ['', '']));
 
   function updateName(i, val) {
     setNames(prev => prev.map((n, idx) => (idx === i ? val : n)));
@@ -28,7 +28,7 @@ export default function Setup({ onStart }) {
     <div className="screen">
       <div className="setup-header">
         <img src="/logo.png" alt="Johann's Folly" className="app-logo" />
-        <p>Enter player names (2–10 players)</p>
+        <p>Enter player {solo ? 'name (1–10 players)' : 'names (2–10 players)'}</p>
       </div>
 
       <div className="card">

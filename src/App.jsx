@@ -1,12 +1,20 @@
 import { useState, useCallback } from 'react';
 import './index.css';
 
-import Setup from './components/Setup.jsx';
+import Lobby from './components/Lobby.jsx';
+import RoomLobby from './components/RoomLobby.jsx';
 import Scoreboard from './components/Scoreboard.jsx';
 import ScoringScreen from './components/ScoringScreen.jsx';
 import PlayoffScreen from './components/PlayoffScreen.jsx';
 
 import { createGame } from './gameLogic.js';
+
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
 
 // Advance currentPlayerIndex to next player, wrapping around and bumping round.
 function advanceGame(game) {
@@ -20,16 +28,35 @@ function advanceGame(game) {
 
 export default function App() {
   const [game, setGame] = useState(null);
-  const [view, setView] = useState('setup'); // 'setup' | 'scoring' | 'scoreboard' | 'playoff' | 'winner'
+  const [view, setView] = useState('lobby'); // 'lobby' | 'room' | 'scoring' | 'scoreboard' | 'playoff' | 'winner'
+  const [roomCode, setRoomCode] = useState(null);
   const [playoffPlayers, setPlayoffPlayers] = useState([]);
   const [finalWinners, setFinalWinners] = useState([]);
   const [playoffScores, setPlayoffScores] = useState({});
 
-  // --- Setup ---
-  function handleStart(playerNames) {
+  // --- Lobby ---
+  function handleCreateRoom() {
+    const code = generateRoomCode();
+    setRoomCode(code);
+    setView('room');
+  }
+
+  function handleJoinRoom(code) {
+    setRoomCode(code);
+    setView('room');
+  }
+
+  function handleSolo() {
+    setGame(createGame(['Solo Player']));
+    setView('scoring');
+  }
+
+  // --- Room start ---
+  function handleRoomStart(playerNames) {
     setGame(createGame(playerNames));
     setView('scoring');
   }
+
 
   // --- Turn complete: called when a player finishes all their darts ---
   const handleTurnComplete = useCallback((newTargetIndex, _allDarts, hitBull) => {
@@ -93,13 +120,24 @@ export default function App() {
     setFinalWinners([]);
     setPlayoffScores({});
     setPlayoffPlayers([]);
-    setView('setup');
+    setRoomCode(null);
+    setView('lobby');
   }
 
   // ---- Render ----
 
-  if (view === 'setup') {
-    return <Setup onStart={handleStart} />;
+  if (view === 'lobby') {
+    return <Lobby onCreateRoom={handleCreateRoom} onJoinRoom={handleJoinRoom} onSolo={handleSolo} />;
+  }
+
+  if (view === 'room') {
+    return (
+      <RoomLobby
+        roomCode={roomCode}
+        onStart={handleRoomStart}
+        onLeave={() => { setRoomCode(null); setView('lobby'); }}
+      />
+    );
   }
 
   if (view === 'winner') {
