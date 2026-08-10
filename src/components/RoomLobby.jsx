@@ -10,6 +10,16 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
   const [waiting, setWaiting] = useState(!isHost);
   const channelRef = useRef(null);
 
+  function mergeJoinedPlayers(joinedNames) {
+    if (joinedNames.length === 0) return;
+    setNames(prev => {
+      const existing = new Set(prev.map(n => n.trim().toLowerCase()));
+      const toAdd = joinedNames.filter(n => !existing.has(n.trim().toLowerCase()));
+      if (toAdd.length === 0) return prev;
+      return [...prev, ...toAdd].slice(0, MAX_PLAYERS);
+    });
+  }
+
   // Host: announce room creation and keep it open; close on unmount
   useEffect(() => {
     if (!isHost) return;
@@ -21,14 +31,20 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
   useEffect(() => {
     if (isHost || !myPlayerName) return;
     localStorage.setItem(`room-player:${roomCode}:${myPlayerName}`, '1');
+    const channel = new BroadcastChannel(`jf:room:${roomCode}`);
+    channel.postMessage({ type: 'room_joined', playerName: myPlayerName });
     return () => {
+      channel.postMessage({ type: 'room_left', playerName: myPlayerName });
+      channel.close();
       localStorage.removeItem(`room-player:${roomCode}:${myPlayerName}`);
     };
   }, [isHost, roomCode, myPlayerName]);
 
-  // Host: poll localStorage every 2 s to pick up newly joined players
+  // Host: listen for joined players immediately and fall back to localStorage
+  // scanning so late arrivals or refreshed tabs are still discovered.
   useEffect(() => {
     if (!isHost) return;
+    const channel = new BroadcastChannel(`jf:room:${roomCode}`);
     function syncJoiners() {
       const prefix = `room-player:${roomCode}:`;
       const joined = [];
@@ -38,24 +54,23 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
           joined.push(key.slice(prefix.length));
         }
       }
-      if (joined.length === 0) return;
-      setNames(prev => {
-        const existing = new Set(prev.map(n => n.trim().toLowerCase()));
-        const toAdd = joined.filter(n => !existing.has(n.trim().toLowerCase()));
-        if (toAdd.length === 0) return prev;
-        const merged = [...prev, ...toAdd].slice(0, MAX_PLAYERS);
-        return merged;
-      });
+      mergeJoinedPlayers(joined);
     }
     function handleStorage(event) {
       if (!event.key || event.key.startsWith(`room-player:${roomCode}:`)) {
         syncJoiners();
       }
     }
+    channel.onmessage = (event) => {
+      if (event.data?.type === 'room_joined' && event.data.playerName) {
+        mergeJoinedPlayers([event.data.playerName]);
+      }
+    };
     syncJoiners();
     window.addEventListener('storage', handleStorage);
     const id = setInterval(syncJoiners, 2000);
     return () => {
+      channel.close();
       window.removeEventListener('storage', handleStorage);
       clearInterval(id);
     };
