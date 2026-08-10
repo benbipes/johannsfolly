@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getOpenRooms } from '../useGameSync.js';
 
-export default function Lobby({ onCreateRoom, onJoinRoom, onSolo, loggedInUser, onLogout }) {
+export default function Lobby({ onCreateRoom, onJoinRoom, onSolo, loggedInUser, onLogout, onShowLeaderboard }) {
   const [joinCode, setJoinCode] = useState('');
   const [error, setError] = useState('');
   const [availableRooms, setAvailableRooms] = useState(() => getOpenRooms());
@@ -122,6 +122,14 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onSolo, loggedInUser, 
           </>
         )}
       </div>
+
+      <button
+        className="btn-secondary"
+        style={{ width: '100%', marginTop: '0.25rem' }}
+        onClick={onShowLeaderboard}
+      >
+        🏆 Leaderboard
+      </button>
     </div>
   );
 }

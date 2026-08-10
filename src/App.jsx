@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import './index.css';
 
 import AuthScreen from './components/AuthScreen.jsx';
@@ -7,10 +7,12 @@ import RoomLobby from './components/RoomLobby.jsx';
 import Scoreboard from './components/Scoreboard.jsx';
 import ScoringScreen from './components/ScoringScreen.jsx';
 import PlayoffScreen from './components/PlayoffScreen.jsx';
+import LeaderboardView from './components/Leaderboard.jsx';
 
 import { createGame } from './gameLogic.js';
 import { useGameSync } from './useGameSync.js';
 import { getLoggedInUser, logout } from './auth.js';
+import { recordGame } from './leaderboard.js';
 
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -32,13 +34,17 @@ function advanceGame(game) {
 export default function App() {
   const [loggedInUser, setLoggedInUser] = useState(() => getLoggedInUser());
   const [game, setGame] = useState(null);
-  const [view, setView] = useState('lobby'); // 'lobby' | 'room' | 'scoring' | 'scoreboard' | 'playoff' | 'winner'
+  const [view, setView] = useState('lobby'); // 'lobby' | 'room' | 'scoring' | 'scoreboard' | 'playoff' | 'winner' | 'leaderboard'
   const [roomCode, setRoomCode] = useState(null);
   const [isHost, setIsHost] = useState(false);
   const [myPlayerName, setMyPlayerName] = useState(null); // null = no identity (single-device mode)
   const [playoffPlayers, setPlayoffPlayers] = useState([]);
   const [finalWinners, setFinalWinners] = useState([]);
   const [playoffScores, setPlayoffScores] = useState({});
+
+  // Per-player stats accumulated during the current game for leaderboard recording
+  // { [playerName]: { marks: number, darts: number } }
+  const playerStatsRef = useRef({});
 
   // Sync game state across tabs/devices in the same room
   const { broadcast } = useGameSync(roomCode, useCallback((remoteGame) => {
@@ -63,6 +69,7 @@ export default function App() {
   }
 
   function handleSolo() {
+    playerStatsRef.current = {};
     setGame(createGame([loggedInUser ?? 'Solo Player']));
     setView('scoring');
   }
@@ -71,14 +78,28 @@ export default function App() {
   function handleRoomStart(playerNames) {
     const newGame = createGame(playerNames);
     setGame(newGame);
+    playerStatsRef.current = {};
     broadcast(newGame);
     setView('scoring');
   }
 
 
   // --- Turn complete: called when a player finishes all their darts ---
-  const handleTurnComplete = useCallback((newTargetIndex, _allDarts, hitBull) => {
+  const handleTurnComplete = useCallback((newTargetIndex, allDarts, hitBull) => {
     setGame(prev => {
+      const currentPlayer = prev.players[prev.currentPlayerIndex];
+      const playerName = currentPlayer.name;
+
+      // Accumulate per-player stats for leaderboard
+      const prevMarks = currentPlayer.targetIndex;
+      const marksThisTurn = newTargetIndex - prevMarks;
+      const dartsThisTurn = allDarts ? allDarts.length : 0;
+      const stats = playerStatsRef.current;
+      stats[playerName] = {
+        marks: (stats[playerName]?.marks ?? 0) + marksThisTurn,
+        darts: (stats[playerName]?.darts ?? 0) + dartsThisTurn,
+      };
+
       // Update current player's progress
       const players = prev.players.map((p, i) => {
         if (i !== prev.currentPlayerIndex) return p;
@@ -106,8 +127,15 @@ export default function App() {
           .map(({ i }) => i);
 
         if (hitters.length === 1) {
-          // Sole winner — schedule view change after state settles
+          // Sole winner — record stats and schedule view change
+          const marksMap = {};
+          const dartsMap = {};
+          players.forEach(p => {
+            marksMap[p.name] = stats[p.name]?.marks ?? p.targetIndex;
+            dartsMap[p.name] = stats[p.name]?.darts ?? 0;
+          });
           setTimeout(() => {
+            recordGame(players, hitters, prev.round, marksMap, dartsMap);
             setFinalWinners(hitters);
             setView('winner');
           }, 0);
@@ -130,6 +158,16 @@ export default function App() {
 
   // --- Playoff complete ---
   function handlePlayoffComplete(winners, scores) {
+    // Record the game result after playoff
+    const marksMap = {};
+    const dartsMap = {};
+    const stats = playerStatsRef.current;
+    game.players.forEach(p => {
+      marksMap[p.name] = stats[p.name]?.marks ?? p.targetIndex;
+      dartsMap[p.name] = stats[p.name]?.darts ?? 0;
+    });
+    recordGame(game.players, winners, game.round, marksMap, dartsMap);
+
     setFinalWinners(winners);
     setPlayoffScores(scores);
     setView('winner');
@@ -154,7 +192,11 @@ export default function App() {
   }
 
   if (view === 'lobby') {
-    return <Lobby onCreateRoom={handleCreateRoom} onJoinRoom={handleJoinRoom} onSolo={handleSolo} loggedInUser={loggedInUser} onLogout={() => { logout(); setLoggedInUser(null); }} />;
+    return <Lobby onCreateRoom={handleCreateRoom} onJoinRoom={handleJoinRoom} onSolo={handleSolo} loggedInUser={loggedInUser} onLogout={() => { logout(); setLoggedInUser(null); }} onShowLeaderboard={() => setView('leaderboard')} />;
+  }
+
+  if (view === 'leaderboard') {
+    return <LeaderboardView onClose={() => setView('lobby')} />;
   }
 
   if (view === 'room') {
