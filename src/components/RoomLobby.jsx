@@ -46,9 +46,18 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
         return merged;
       });
     }
+    function handleStorage(event) {
+      if (!event.key || event.key.startsWith(`room-player:${roomCode}:`)) {
+        syncJoiners();
+      }
+    }
     syncJoiners();
+    window.addEventListener('storage', handleStorage);
     const id = setInterval(syncJoiners, 2000);
-    return () => clearInterval(id);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      clearInterval(id);
+    };
   }, [isHost, roomCode]);
 
   // Joiner: listen for game start via BroadcastChannel

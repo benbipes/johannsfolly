@@ -7,8 +7,8 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onSolo }) {
 
   function handleJoin() {
     const code = joinCode.trim().toUpperCase();
-    if (code.length !== 6) {
-      setError('Room code must be 6 characters.');
+    if (code.length !== 4) {
+      setError('Room code must be 4 characters.');
       return;
     }
     const name = joinName.trim();
@@ -57,7 +57,7 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onSolo }) {
               placeholder="Room code"
               value={joinCode}
               onChange={e => { setJoinCode(e.target.value.toUpperCase()); setError(''); }}
-              maxLength={6}
+              maxLength={4}
               style={{ letterSpacing: '0.15em', textTransform: 'uppercase' }}
             />
           </div>
