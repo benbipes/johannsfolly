@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 const MAX_PLAYERS = 10;
 
 export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onLeave }) {
-  const [names, setNames] = useState(['']);
+  const [names, setNames] = useState(myPlayerName ? [myPlayerName] : ['']);
   const [copied, setCopied] = useState(false);
   // Joiner: track whether the host has started (waiting state)
   const [waiting, setWaiting] = useState(!isHost);
@@ -110,9 +110,7 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
       const key = localStorage.key(i);
       if (key && key.startsWith(prefix)) localStorage.removeItem(key);
     }
-    // Pass first player name as host name if not already set
-    const hostName = filled[0];
-    onStart(filled, hostName);
+    onStart(filled);
   }
 
   async function handleCopy() {
@@ -194,33 +192,34 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
         <p className="section-title" style={{ marginBottom: '0.75rem' }}>
           Players
           <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.8rem', marginLeft: '0.5rem' }}>
-            (joined players appear automatically)
+            (others join using the room code)
           </span>
         </p>
         <div className="player-list">
-          {names.map((name, i) => (
-            <div className="player-row" key={i}>
+          {/* Host name — editable */}
+          <div className="player-row" key="host">
+            <input
+              type="text"
+              placeholder="Your name"
+              value={names[0] ?? ''}
+              onChange={e => updateName(0, e.target.value)}
+              maxLength={20}
+              autoCapitalize="words"
+            />
+          </div>
+          {/* Joined players — read-only */}
+          {names.slice(1).map((name, i) => (
+            <div className="player-row" key={i + 1} style={{ opacity: 0.85 }}>
               <input
                 type="text"
-                placeholder={`Player ${i + 1}`}
                 value={name}
-                onChange={e => updateName(i, e.target.value)}
-                maxLength={20}
-                autoCapitalize="words"
+                readOnly
+                style={{ cursor: 'default', color: 'var(--accent)' }}
               />
-              {names.length > 1 && (
-                <button className="remove-btn" onClick={() => removePlayer(i)} aria-label="Remove">
-                  ✕
-                </button>
-              )}
+              <span style={{ fontSize: '0.75rem', color: 'var(--muted)', paddingLeft: '0.25rem', whiteSpace: 'nowrap' }}>joined</span>
             </div>
           ))}
         </div>
-        {names.length < MAX_PLAYERS && (
-          <button className="add-player-btn" style={{ marginTop: '0.75rem' }} onClick={addPlayer}>
-            + Add Player
-          </button>
-        )}
       </div>
 
       <div className="spacer" />
