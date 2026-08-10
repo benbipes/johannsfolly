@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import './index.css';
 
+import AuthScreen from './components/AuthScreen.jsx';
 import Lobby from './components/Lobby.jsx';
 import RoomLobby from './components/RoomLobby.jsx';
 import Scoreboard from './components/Scoreboard.jsx';
@@ -9,6 +10,7 @@ import PlayoffScreen from './components/PlayoffScreen.jsx';
 
 import { createGame } from './gameLogic.js';
 import { useGameSync } from './useGameSync.js';
+import { getLoggedInUser, logout } from './auth.js';
 
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -28,6 +30,7 @@ function advanceGame(game) {
 }
 
 export default function App() {
+  const [loggedInUser, setLoggedInUser] = useState(() => getLoggedInUser());
   const [game, setGame] = useState(null);
   const [view, setView] = useState('lobby'); // 'lobby' | 'room' | 'scoring' | 'scoreboard' | 'playoff' | 'winner'
   const [roomCode, setRoomCode] = useState(null);
@@ -44,23 +47,23 @@ export default function App() {
   }, []));
 
   // --- Lobby ---
-  function handleCreateRoom(hostName) {
+  function handleCreateRoom() {
     const code = generateRoomCode();
     setRoomCode(code);
     setIsHost(true);
-    if (hostName) setMyPlayerName(hostName);
+    setMyPlayerName(loggedInUser);
     setView('room');
   }
 
-  function handleJoinRoom(code, playerName) {
+  function handleJoinRoom(code) {
     setRoomCode(code);
     setIsHost(false);
-    if (playerName) setMyPlayerName(playerName);
+    setMyPlayerName(loggedInUser);
     setView('room');
   }
 
   function handleSolo() {
-    setGame(createGame(['Solo Player']));
+    setGame(createGame([loggedInUser ?? 'Solo Player']));
     setView('scoring');
   }
 
@@ -146,8 +149,12 @@ export default function App() {
 
   // ---- Render ----
 
+  if (!loggedInUser) {
+    return <AuthScreen onAuth={(name) => setLoggedInUser(name)} />;
+  }
+
   if (view === 'lobby') {
-    return <Lobby onCreateRoom={handleCreateRoom} onJoinRoom={handleJoinRoom} onSolo={handleSolo} />;
+    return <Lobby onCreateRoom={handleCreateRoom} onJoinRoom={handleJoinRoom} onSolo={handleSolo} loggedInUser={loggedInUser} onLogout={() => { logout(); setLoggedInUser(null); }} />;
   }
 
   if (view === 'room') {

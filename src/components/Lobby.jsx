@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { getOpenRooms } from '../useGameSync.js';
 
-export default function Lobby({ onCreateRoom, onJoinRoom, onSolo }) {
-  const [hostName, setHostName] = useState('');
+export default function Lobby({ onCreateRoom, onJoinRoom, onSolo, loggedInUser, onLogout }) {
   const [joinCode, setJoinCode] = useState('');
-  const [joinName, setJoinName] = useState('');
   const [error, setError] = useState('');
   const [availableRooms, setAvailableRooms] = useState(() => getOpenRooms());
   const channelRef = useRef(null);
@@ -31,13 +29,7 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onSolo }) {
   const [joinError, setJoinError] = useState('');
 
   function handleCreate() {
-    const name = hostName.trim();
-    if (!name) {
-      setError('Please enter your name.');
-      return;
-    }
-    setError('');
-    onCreateRoom(name);
+    onCreateRoom();
   }
 
   function handleJoin() {
@@ -46,48 +38,38 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onSolo }) {
       setJoinError('Room code must be 4 characters.');
       return;
     }
-    const name = joinName.trim();
-    if (!name) {
-      setJoinError('Please enter your name.');
-      return;
-    }
     setJoinError('');
-    onJoinRoom(code, name);
+    onJoinRoom(code);
   }
 
   function handleJoinRoom(code) {
-    const name = joinName.trim();
-    if (!name) {
-      setError('Please enter your name before joining a room.');
-      return;
-    }
     setError('');
-    onJoinRoom(code, name);
+    onJoinRoom(code);
   }
 
   return (
     <div className="screen">
       <div className="setup-header">
         <img src="/logo.png" alt="Johann's Folly" className="app-logo" />
+        {loggedInUser && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+            <span style={{ color: 'var(--accent)', fontWeight: 700 }}>👤 {loggedInUser}</span>
+            <button
+              className="btn-secondary"
+              style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }}
+              onClick={onLogout}
+            >
+              Logout
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="card">
         <p className="section-title" style={{ marginBottom: '0.75rem' }}>Create a Room</p>
-        <div className="player-list" style={{ marginBottom: '0.5rem' }}>
-          <div className="player-row">
-            <input
-              type="text"
-              placeholder="Your name"
-              value={hostName}
-              onChange={e => { setHostName(e.target.value); setError(''); }}
-              maxLength={20}
-              autoCapitalize="words"
-            />
-          </div>
-        </div>
         {error && <p style={{ color: 'var(--danger)', fontSize: '0.85rem', marginBottom: '0.5rem' }}>{error}</p>}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <button className="btn-primary" onClick={handleCreate} disabled={hostName.trim().length === 0}>
+          <button className="btn-primary" onClick={handleCreate}>
             🎯 Create Room
           </button>
           <button className="btn-secondary" style={{ width: '100%' }} onClick={onSolo}>
@@ -99,16 +81,6 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onSolo }) {
       <div className="card">
         <p className="section-title" style={{ marginBottom: '0.75rem' }}>Join a Room</p>
         <div className="player-list" style={{ marginBottom: '0.5rem' }}>
-          <div className="player-row">
-            <input
-              type="text"
-              placeholder="Your name"
-              value={joinName}
-              onChange={e => { setJoinName(e.target.value); setJoinError(''); }}
-              maxLength={20}
-              autoCapitalize="words"
-            />
-          </div>
           <div className="player-row">
             <input
               type="text"
@@ -125,7 +97,7 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onSolo }) {
           className="btn-secondary"
           style={{ width: '100%' }}
           onClick={handleJoin}
-          disabled={joinCode.trim().length === 0 || joinName.trim().length === 0}
+          disabled={joinCode.trim().length === 0}
         >
           Join Room
         </button>
@@ -134,9 +106,6 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onSolo }) {
           <>
             <p className="section-title" style={{ margin: '0.75rem 0 0.5rem' }}>
               Available Rooms
-              <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.8rem', marginLeft: '0.5rem' }}>
-                (enter your name then tap to join)
-              </span>
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {availableRooms.map(room => (
