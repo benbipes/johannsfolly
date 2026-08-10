@@ -22,7 +22,6 @@ export default function ScoringScreen({ game, player, playerIndex, myPlayerName,
   const [darts, setDarts] = useState([]);
   const [turnDarts, setTurnDarts] = useState([]); // all darts in the full turn (across perfect sets)
   const [perfectSets, setPerfectSets] = useState(0);
-  const [showPerfect, setShowPerfect] = useState(false);
 
   // Simulated current target after previous perfect sets
   const [simulatedTargetIndex, setSimulatedTargetIndex] = useState(player.targetIndex);
@@ -49,18 +48,13 @@ export default function ScoringScreen({ game, player, playerIndex, myPlayerName,
         // Turn ends
         onTurnComplete(newTargetIndex, allTurnDarts, hitBull);
       } else {
-        // Perfect throw! Show banner then let them throw again
+        // Perfect throw! Immediately continue with the next set
         setSimulatedTargetIndex(newTargetIndex);
         setTurnDarts(allTurnDarts);
         setPerfectSets(s => s + 1);
-        setShowPerfect(true);
+        setDarts([]);
       }
     }
-  }
-
-  function handleContinueAfterPerfect() {
-    setDarts([]);
-    setShowPerfect(false);
   }
 
   function undoLast() {
@@ -280,19 +274,8 @@ export default function ScoringScreen({ game, player, playerIndex, myPlayerName,
         })}
       </div>
 
-      {/* Perfect banner */}
-      {showPerfect && (
-        <div className="perfect-banner">
-          <h2>✨ Perfect Throw!</h2>
-          <p>All 3 darts hit — 3 bonus darts coming up!</p>
-          <button className="btn-success" style={{ marginTop: '0.75rem', width: '100%' }} onClick={handleContinueAfterPerfect}>
-            Throw Bonus Darts →
-          </button>
-        </div>
-      )}
-
       {/* Score buttons */}
-      {!showPerfect && !setDone && (
+      {!setDone && (
         <>
           <p className="section-title" style={{ textAlign: 'center' }}>Dart {dartsInSet + 1} of 3</p>
           <div className="score-btns">
@@ -316,10 +299,9 @@ export default function ScoringScreen({ game, player, playerIndex, myPlayerName,
       )}
 
       {/* Waiting for process */}
-      {!showPerfect && setDone && (
+      {setDone && (
         <div style={{ textAlign: 'center', color: 'var(--muted)' }}>Calculating…</div>
       )}
     </div>
   );
 }
-
