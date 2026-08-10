@@ -20,7 +20,6 @@ export default function PlayoffScreen({ game, playoffPlayers, onPlayoffComplete 
   const [currentIdx, setCurrentIdx] = useState(0);
   const [scores, setScores] = useState({}); // playerIndex -> total hits
   const [darts, setDarts] = useState([]);
-  const [showPerfect, setShowPerfect] = useState(false);
   const [extraSets, setExtraSets] = useState(0);
 
   // Find a non-winner for left-hand throw
@@ -52,7 +51,7 @@ export default function PlayoffScreen({ game, playoffPlayers, onPlayoffComplete 
         // Perfect throw
         setScores(prev => ({ ...prev, [playerIdx]: prevScore + hitCount }));
         setExtraSets(s => s + 1);
-        setShowPerfect(true);
+        setDarts([]);
       } else {
         // Done
         const finalScore = prevScore + hitCount;
@@ -61,11 +60,6 @@ export default function PlayoffScreen({ game, playoffPlayers, onPlayoffComplete 
         advancePlayer(newScores);
       }
     }
-  }
-
-  function handleContinueAfterPerfect() {
-    setDarts([]);
-    setShowPerfect(false);
   }
 
   function advancePlayer(newScores) {
@@ -186,17 +180,7 @@ export default function PlayoffScreen({ game, playoffPlayers, onPlayoffComplete 
         })}
       </div>
 
-      {showPerfect && (
-        <div className="perfect-banner">
-          <h2>✨ Perfect Throw!</h2>
-          <p>3 bonus darts!</p>
-          <button className="btn-success" style={{ marginTop: '0.75rem', width: '100%' }} onClick={handleContinueAfterPerfect}>
-            Throw Bonus Darts →
-          </button>
-        </div>
-      )}
-
-      {!showPerfect && !setDone && (
+      {!setDone && (
         <>
           <p className="section-title" style={{ textAlign: 'center' }}>Dart {darts.length + 1} of 3</p>
           <div className="score-btns">
