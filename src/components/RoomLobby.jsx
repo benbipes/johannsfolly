@@ -1,5 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { announceRoom } from '../useGameSync.js';
+import {
+  announceRoom,
+  clearRoom,
+  clearRoomPlayers,
+  getActiveRoomPlayers,
+  removeRoomPlayerPresence,
+  setRoomPlayerPresence,
+} from '../useGameSync.js';
 
 const MAX_PLAYERS = 10;
 
@@ -10,21 +17,41 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
   const [waiting, setWaiting] = useState(!isHost);
   const channelRef = useRef(null);
 
-  function mergeJoinedPlayers(joinedNames) {
-    if (joinedNames.length === 0) return;
+  function syncJoinedPlayers(joinedNames) {
     setNames(prev => {
-      const existing = new Set(prev.map(n => n.trim().toLowerCase()));
-      const toAdd = joinedNames.filter(n => !existing.has(n.trim().toLowerCase()));
-      if (toAdd.length === 0) return prev;
-      return [...prev, ...toAdd].slice(0, MAX_PLAYERS);
+      const hostName = prev[0] ?? '';
+      const existing = new Set([hostName.trim().toLowerCase()]);
+      const nextJoined = [];
+      for (const name of joinedNames) {
+        const normalized = name.trim().toLowerCase();
+        if (!normalized || existing.has(normalized)) continue;
+        existing.add(normalized);
+        nextJoined.push(name);
+        if (nextJoined.length >= MAX_PLAYERS - 1) break;
+      }
+      return [hostName, ...nextJoined];
     });
   }
 
   // Host: announce room creation and keep it open; close on unmount
   useEffect(() => {
     if (!isHost) return;
-    announceRoom(roomCode, 'open');
-    return () => announceRoom(roomCode, 'closed');
+    const syncRoom = () => announceRoom(roomCode, 'open');
+    const closeRoom = () => {
+      announceRoom(roomCode, 'closed');
+      clearRoom(roomCode);
+      clearRoomPlayers(roomCode);
+    };
+    syncRoom();
+    const id = setInterval(syncRoom, 5000);
+    window.addEventListener('beforeunload', closeRoom);
+    window.addEventListener('pagehide', closeRoom);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener('beforeunload', closeRoom);
+      window.removeEventListener('pagehide', closeRoom);
+      closeRoom();
+    };
   }, [roomCode, isHost]);
 
   // Joiner: register self in localStorage so host can discover them,
@@ -32,16 +59,25 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
   // where the host tab wasn't listening when we first joined.
   useEffect(() => {
     if (isHost || !myPlayerName) return;
-    localStorage.setItem(`room-player:${roomCode}:${myPlayerName}`, '1');
     const channel = new BroadcastChannel(`jf:room:${roomCode}`);
-    const announce = () => channel.postMessage({ type: 'room_joined', playerName: myPlayerName });
+    const announce = () => {
+      setRoomPlayerPresence(roomCode, myPlayerName);
+      channel.postMessage({ type: 'room_joined', playerName: myPlayerName });
+    };
+    const leaveRoom = () => {
+      removeRoomPlayerPresence(roomCode, myPlayerName);
+      channel.postMessage({ type: 'room_left', playerName: myPlayerName });
+    };
     announce();
-    const id = setInterval(announce, 2000);
+    const id = setInterval(announce, 5000);
+    window.addEventListener('beforeunload', leaveRoom);
+    window.addEventListener('pagehide', leaveRoom);
     return () => {
       clearInterval(id);
-      channel.postMessage({ type: 'room_left', playerName: myPlayerName });
+      window.removeEventListener('beforeunload', leaveRoom);
+      window.removeEventListener('pagehide', leaveRoom);
+      leaveRoom();
       channel.close();
-      localStorage.removeItem(`room-player:${roomCode}:${myPlayerName}`);
     };
   }, [isHost, roomCode, myPlayerName]);
 
@@ -51,15 +87,7 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
     if (!isHost) return;
     const channel = new BroadcastChannel(`jf:room:${roomCode}`);
     function syncJoiners() {
-      const prefix = `room-player:${roomCode}:`;
-      const joined = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith(prefix)) {
-          joined.push(key.slice(prefix.length));
-        }
-      }
-      mergeJoinedPlayers(joined);
+      syncJoinedPlayers(getActiveRoomPlayers(roomCode));
     }
     function handleStorage(event) {
       if (!event.key || event.key.startsWith(`room-player:${roomCode}:`)) {
@@ -67,13 +95,13 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
       }
     }
     channel.onmessage = (event) => {
-      if (event.data?.type === 'room_joined' && event.data.playerName) {
-        mergeJoinedPlayers([event.data.playerName]);
+      if (event.data?.type === 'room_joined' || event.data?.type === 'room_left') {
+        syncJoiners();
       }
     };
     syncJoiners();
     window.addEventListener('storage', handleStorage);
-    const id = setInterval(syncJoiners, 2000);
+    const id = setInterval(syncJoiners, 5000);
     return () => {
       channel.close();
       window.removeEventListener('storage', handleStorage);
@@ -99,24 +127,14 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
   function updateName(i, val) {
     setNames(prev => prev.map((n, idx) => (idx === i ? val : n)));
   }
-  function addPlayer() {
-    if (names.length < MAX_PLAYERS) setNames(prev => [...prev, '']);
-  }
-  function removePlayer(i) {
-    if (names.length > 1) setNames(prev => prev.filter((_, idx) => idx !== i));
-  }
 
   function handleStart() {
     const filled = names.map(n => n.trim()).filter(Boolean);
     if (filled.length < 1) return;
     // Mark room as closed and clean up storage when game starts
     announceRoom(roomCode, 'closed');
-    localStorage.removeItem(`room:${roomCode}`);
-    const prefix = `room-player:${roomCode}:`;
-    for (let i = localStorage.length - 1; i >= 0; i--) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith(prefix)) localStorage.removeItem(key);
-    }
+    clearRoom(roomCode);
+    clearRoomPlayers(roomCode);
     onStart(filled);
   }
 
