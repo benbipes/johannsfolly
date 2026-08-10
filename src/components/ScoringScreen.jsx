@@ -10,7 +10,10 @@ const DART_OPTIONS = [
 
 const SLOT_ICONS = { miss: '✗', single: '🎯', double: '🎯🎯', triple: '🎯🎯🎯' };
 
-export default function ScoringScreen({ game, player, onTurnComplete, onShowScoreboard }) {
+export default function ScoringScreen({ game, player, playerIndex, onTurnComplete, onShowScoreboard, onQuit }) {
+  // Hand-off gate: show "pass device to player" before revealing scoring UI
+  const [ready, setReady] = useState(false);
+
   // darts: array of results for current "set" of 3
   const [darts, setDarts] = useState([]);
   const [turnDarts, setTurnDarts] = useState([]); // all darts in the full turn (across perfect sets)
@@ -63,6 +66,66 @@ export default function ScoringScreen({ game, player, onTurnComplete, onShowScor
 
   const progress = simulatedTargetIndex / BULL_INDEX;
 
+  // Sort players by progress for the mini scoreboard
+  const sortedPlayers = game.players
+    .map((p, i) => ({ ...p, originalIndex: i }))
+    .sort((a, b) => b.targetIndex - a.targetIndex);
+
+  // ── Hand-off gate ──────────────────────────────────────────────
+  if (!ready) {
+    return (
+      <div className="screen">
+        {/* Header row with quit */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div className="round-badge">Round {game.round}</div>
+          <div className="spacer" />
+          <button
+            className="btn-danger"
+            style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
+            onClick={onQuit}
+          >
+            ✕ Quit
+          </button>
+        </div>
+
+        <div className="handoff-screen">
+          <div className="handoff-icon">📲</div>
+          <h2>Pass the device to</h2>
+          <h1 style={{ fontSize: '1.8rem' }}>{player.name}</h1>
+          <p>Hand this device to <strong style={{ color: 'var(--text)' }}>{player.name}</strong> so they can enter their own darts.</p>
+          <button
+            className="btn-primary"
+            style={{ marginTop: '0.5rem' }}
+            onClick={() => setReady(true)}
+          >
+            I'm {player.name} — I'm Ready 🎯
+          </button>
+        </div>
+
+        {/* Mini scoreboard visible during hand-off */}
+        <div className="card">
+          <p className="section-title" style={{ marginBottom: '0.5rem' }}>Current Standings</p>
+          <div className="mini-scoreboard">
+            {sortedPlayers.map((p) => {
+              const isCurrent = p.originalIndex === playerIndex;
+              const atBull = p.targetIndex === BULL_INDEX;
+              const target = TARGET_SEQUENCE[p.targetIndex];
+              return (
+                <div key={p.originalIndex} className={`mini-score-row${isCurrent ? ' current-player' : ''}${p.finished ? ' finished' : ''}`}>
+                  <span className="mini-score-name">{p.finished ? '🏆 ' : ''}{p.name}</span>
+                  <span className={`mini-score-target${atBull ? ' at-bull' : ''}`}>
+                    {p.finished ? '🎯 Bull' : `→ ${target}`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Main scoring UI ────────────────────────────────────────────
   return (
     <div className="screen">
       {/* Header row */}
@@ -75,6 +138,13 @@ export default function ScoringScreen({ game, player, onTurnComplete, onShowScor
           onClick={onShowScoreboard}
         >
           📋 Scores
+        </button>
+        <button
+          className="btn-danger"
+          style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
+          onClick={onQuit}
+        >
+          ✕ Quit
         </button>
       </div>
 
@@ -94,6 +164,31 @@ export default function ScoringScreen({ game, player, onTurnComplete, onShowScor
               ✨ ×{perfectSets} perfect
             </span>
           )}
+        </div>
+      </div>
+
+      {/* Mini scoreboard — always visible */}
+      <div className="card">
+        <p className="section-title" style={{ marginBottom: '0.5rem' }}>Current Standings</p>
+        <div className="mini-scoreboard">
+          {sortedPlayers.map((p) => {
+            const isCurrent = p.originalIndex === playerIndex;
+            const atBull = p.targetIndex === BULL_INDEX;
+            const target = TARGET_SEQUENCE[p.targetIndex];
+            return (
+              <div key={p.originalIndex} className={`mini-score-row${isCurrent ? ' current-player' : ''}${p.finished ? ' finished' : ''}`}>
+                <span className="mini-score-name">{p.finished ? '🏆 ' : ''}{p.name}</span>
+                {isCurrent && !p.finished && (
+                  <span style={{ fontSize: '0.7rem', background: 'var(--accent)', color: '#000', borderRadius: '4px', padding: '0.1rem 0.35rem', fontWeight: 700 }}>
+                    NOW
+                  </span>
+                )}
+                <span className={`mini-score-target${atBull ? ' at-bull' : ''}`}>
+                  {p.finished ? '🎯 Bull' : `→ ${target}`}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -161,3 +256,4 @@ export default function ScoringScreen({ game, player, onTurnComplete, onShowScor
     </div>
   );
 }
+
