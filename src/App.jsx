@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import './index.css';
 
 import AuthScreen from './components/AuthScreen.jsx';
@@ -11,7 +11,7 @@ import LeaderboardView from './components/Leaderboard.jsx';
 
 import { BULL_INDEX, createGame } from './gameLogic.js';
 import { useGameSync } from './useGameSync.js';
-import { getLoggedInUser, logout } from './auth.js';
+import { getLoggedInUser, logout, refreshLoggedUserPresence } from './auth.js';
 import { recordGame } from './leaderboard.js';
 
 function generateRoomCode() {
@@ -47,6 +47,14 @@ export default function App() {
   const [finalStats, setFinalStats] = useState(null); // { rounds, marksMap, dartsMap, perfectsMap }
   const [playoffScores, setPlayoffScores] = useState({});
   const [playoffNumber, setPlayoffNumber] = useState(null);
+
+  useEffect(() => {
+    if (!loggedInUser) return;
+    const heartbeat = () => refreshLoggedUserPresence(loggedInUser);
+    heartbeat();
+    const id = setInterval(heartbeat, 10000);
+    return () => clearInterval(id);
+  }, [loggedInUser]);
 
   // Per-player stats accumulated during the current game for leaderboard recording
   // { [playerName]: { marks: number, darts: number, perfects: number } }
@@ -267,7 +275,6 @@ export default function App() {
     const winnerName = winnerNames[0];
     const rounds = finalStats?.rounds ?? game.round;
     const winnerMarks = finalStats?.marksMap?.[winnerName] ?? BULL_INDEX;
-    const winnerDarts = finalStats?.dartsMap?.[winnerName] ?? 0;
     const winnerPerfects = finalStats?.perfectsMap?.[winnerName] ?? 0;
     const mpr = rounds > 0 ? (winnerMarks / rounds).toFixed(2) : '—';
     return (
