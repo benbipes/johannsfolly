@@ -240,6 +240,20 @@ export default function App() {
     });
   }
 
+  const handlePlayoffUpdate = useCallback((newScores) => {
+    setPlayoffScores(newScores);
+    setGame(prev => {
+      if (!prev) return prev;
+      const updated = {
+        ...prev,
+        view: 'playoff',
+        playoffScores: newScores,
+      };
+      setTimeout(() => broadcast(updated), 0);
+      return updated;
+    });
+  }, [broadcast]);
+
   // --- Restart ---
   function handleRestart() {
     setGame(null);
@@ -358,7 +372,10 @@ export default function App() {
         game={game}
         playoffPlayers={playoffPlayers}
         playoffNumber={playoffNumber}
+        playoffScores={playoffScores}
+        myPlayerName={myPlayerName}
         onPlayoffComplete={handlePlayoffComplete}
+        onPlayoffUpdate={handlePlayoffUpdate}
       />
     );
   }
@@ -382,7 +399,10 @@ export default function App() {
           game={game}
           playoffPlayers={playoffPlayers}
           playoffNumber={playoffNumber}
+          playoffScores={playoffScores}
+          myPlayerName={myPlayerName}
           onPlayoffComplete={handlePlayoffComplete}
+          onPlayoffUpdate={handlePlayoffUpdate}
         />
       );
     }
