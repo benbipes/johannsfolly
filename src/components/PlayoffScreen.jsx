@@ -8,7 +8,7 @@ import { useState } from 'react';
  *   Perfect throw (all 3 hit) gives 3 bonus darts.
  */
 
-export default function PlayoffScreen({ game, playoffPlayers, playoffNumber, onPlayoffComplete, onPlayoffTie }) {
+export default function PlayoffScreen({ game, playoffPlayers, playoffNumber, onPlayoffComplete }) {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [scores, setScores] = useState({}); // playerIndex -> total hits
   const [darts, setDarts] = useState([]);
@@ -50,14 +50,10 @@ export default function PlayoffScreen({ game, playoffPlayers, playoffNumber, onP
   function advancePlayer(newScores) {
     const nextIdx = currentIdx + 1;
     if (nextIdx >= playoffPlayers.length) {
-      // All playoff players done – find winner(s) with most hits
+      // All playoff players done after 1 round — playoff is OVER! Find winner(s) with most hits
       const maxScore = Math.max(...Object.values(newScores));
       const winners = playoffPlayers.filter(pi => (newScores[pi] || 0) === maxScore);
-      if (winners.length > 1 && typeof onPlayoffTie === 'function') {
-        onPlayoffTie(winners);
-      } else {
-        onPlayoffComplete(winners, newScores);
-      }
+      onPlayoffComplete(winners, newScores);
     } else {
       setCurrentIdx(nextIdx);
       setDarts([]);

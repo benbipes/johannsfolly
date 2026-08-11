@@ -240,23 +240,6 @@ export default function App() {
     });
   }
 
-  function handlePlayoffTie(tiedPlayers) {
-    const newNum = choosePlayoffNumber();
-    setPlayoffPlayers(tiedPlayers);
-    setPlayoffScores({});
-    setPlayoffNumber(newNum);
-    setView('playoff');
-    if (game) {
-      broadcast({
-        ...game,
-        view: 'playoff',
-        playoffPlayers: tiedPlayers,
-        playoffNumber: newNum,
-        playoffScores: {},
-      });
-    }
-  }
-
   // --- Restart ---
   function handleRestart() {
     setGame(null);
@@ -376,7 +359,6 @@ export default function App() {
         playoffPlayers={playoffPlayers}
         playoffNumber={playoffNumber}
         onPlayoffComplete={handlePlayoffComplete}
-        onPlayoffTie={handlePlayoffTie}
       />
     );
   }
@@ -401,7 +383,6 @@ export default function App() {
           playoffPlayers={playoffPlayers}
           playoffNumber={playoffNumber}
           onPlayoffComplete={handlePlayoffComplete}
-          onPlayoffTie={handlePlayoffTie}
         />
       );
     }
