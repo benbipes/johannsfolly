@@ -324,6 +324,9 @@ export default function App() {
         <button className="btn-primary" style={{ marginTop: '0.5rem' }} onClick={handleRestart}>
           New Game
         </button>
+        <button className="btn-secondary" style={{ marginTop: '0.5rem' }} onClick={handleRestart}>
+          Return to Lobby
+        </button>
       </div>
     );
   }
