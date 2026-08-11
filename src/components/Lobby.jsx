@@ -11,17 +11,21 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onSolo, loggedInUser, 
   useEffect(() => {
     const channel = new BroadcastChannel('jf:lobby');
     channelRef.current = channel;
-    channel.onmessage = () => {
+    const syncRooms = () => {
       setAvailableRooms(getOpenRooms());
     };
+    channel.onmessage = syncRooms;
     // Also refresh on storage events (same browser, different tab)
     function onStorage(e) {
       if (e.key && e.key.startsWith('room:')) {
-        setAvailableRooms(getOpenRooms());
+        syncRooms();
       }
     }
+    syncRooms();
+    const id = setInterval(syncRooms, 5000);
     window.addEventListener('storage', onStorage);
     return () => {
+      clearInterval(id);
       channel.close();
       window.removeEventListener('storage', onStorage);
     };

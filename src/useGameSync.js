@@ -2,6 +2,13 @@ import { useEffect, useRef, useCallback } from 'react';
 
 const LOBBY_CHANNEL = 'jf:lobby';
 const ROOM_PREFIX = 'room:';
+const PLAYER_PREFIX = 'room-player:';
+const ROOM_TTL_MS = 15000;
+const PLAYER_TTL_MS = 15000;
+
+function isFresh(updatedAt, ttlMs) {
+  return Number.isFinite(updatedAt) && Date.now() - updatedAt <= ttlMs;
+}
 
 /**
  * Announce a room to other lobby tabs via BroadcastChannel and localStorage.
@@ -23,16 +30,70 @@ export function announceRoom(roomCode, status) {
  */
 export function getOpenRooms() {
   const rooms = [];
+  const staleKeys = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (key && key.startsWith(ROOM_PREFIX)) {
       try {
         const val = JSON.parse(localStorage.getItem(key));
-        if (val && val.status === 'open') rooms.push({ code: val.code });
+        const updatedAt = Number(val?.updatedAt);
+        if (val?.status === 'open' && val.code && isFresh(updatedAt, ROOM_TTL_MS)) {
+          rooms.push({ code: val.code });
+        } else if (!val || val.status !== 'open' || !isFresh(updatedAt, ROOM_TTL_MS)) {
+          staleKeys.push(key);
+        }
       } catch { /* ignore */ }
     }
   }
+  staleKeys.forEach(key => localStorage.removeItem(key));
   return rooms;
+}
+
+export function setRoomPlayerPresence(roomCode, playerName) {
+  localStorage.setItem(`${PLAYER_PREFIX}${roomCode}:${playerName}`, JSON.stringify({ playerName, updatedAt: Date.now() }));
+}
+
+export function removeRoomPlayerPresence(roomCode, playerName) {
+  localStorage.removeItem(`${PLAYER_PREFIX}${roomCode}:${playerName}`);
+}
+
+export function getActiveRoomPlayers(roomCode) {
+  const prefix = `${PLAYER_PREFIX}${roomCode}:`;
+  const joined = [];
+  const staleKeys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(prefix)) {
+      try {
+        const val = JSON.parse(localStorage.getItem(key));
+        const playerName = val?.playerName ?? key.slice(prefix.length);
+        const updatedAt = Number(val?.updatedAt);
+        if (playerName && isFresh(updatedAt, PLAYER_TTL_MS)) {
+          joined.push(playerName);
+        } else {
+          staleKeys.push(key);
+        }
+      } catch {
+        staleKeys.push(key);
+      }
+    }
+  }
+  staleKeys.forEach(key => localStorage.removeItem(key));
+  return joined;
+}
+
+export function clearRoom(roomCode) {
+  localStorage.removeItem(`${ROOM_PREFIX}${roomCode}`);
+}
+
+export function clearRoomPlayers(roomCode) {
+  const prefix = `${PLAYER_PREFIX}${roomCode}:`;
+  const keys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(prefix)) keys.push(key);
+  }
+  keys.forEach(key => localStorage.removeItem(key));
 }
 
 /**
