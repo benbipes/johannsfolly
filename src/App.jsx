@@ -69,7 +69,14 @@ export default function App() {
   // Sync game state across tabs/devices in the same room
   const { broadcast } = useGameSync(roomCode, useCallback((remoteGame) => {
     setGame(remoteGame);
-    setView('scoring');
+    if (remoteGame?.view) {
+      setView(remoteGame.view);
+      if (remoteGame.playoffPlayers) setPlayoffPlayers(remoteGame.playoffPlayers);
+      if (remoteGame.playoffNumber !== undefined) setPlayoffNumber(remoteGame.playoffNumber);
+      if (remoteGame.playoffScores) setPlayoffScores(remoteGame.playoffScores);
+      if (remoteGame.finalWinners) setFinalWinners(remoteGame.finalWinners);
+      if (remoteGame.finalStats) setFinalStats(remoteGame.finalStats);
+    }
   }, []));
 
   // --- Lobby ---
@@ -90,7 +97,8 @@ export default function App() {
 
   function handleSolo() {
     playerStatsRef.current = {};
-    setGame(createGame([loggedInUser ?? 'Solo Player']));
+    const newGame = createGame([loggedInUser ?? 'Solo Player']);
+    setGame(newGame);
     setView('scoring');
   }
 
@@ -99,7 +107,7 @@ export default function App() {
     const newGame = createGame(playerNames);
     setGame(newGame);
     playerStatsRef.current = {};
-    broadcast(newGame);
+    broadcast({ ...newGame, view: 'scoring' });
     setView('scoring');
   }
 
@@ -136,20 +144,29 @@ export default function App() {
       // Advance to next player
       const nextIdx = (prev.currentPlayerIndex + 1) % players.length;
       const newRound = nextIdx === 0 ? prev.round + 1 : prev.round;
-      const advanced = { ...prev, players, currentPlayerIndex: nextIdx, round: newRound };
+      let advanced = { ...prev, players, currentPlayerIndex: nextIdx, round: newRound };
 
       const bullPlayers = players
         .map((p, i) => ({ p, i }))
         .filter(({ p }) => p.targetIndex === BULL_INDEX)
         .map(({ i }) => i);
 
+      let nextView = 'scoring';
+
       if ((reachedBullThisTurn || hitBull) && bullPlayers.length > 1) {
-        setTimeout(() => {
-          setPlayoffPlayers(bullPlayers);
-          setPlayoffScores({});
-          setPlayoffNumber(choosePlayoffNumber());
-          setView('playoff');
-        }, 0);
+        const pNum = choosePlayoffNumber();
+        nextView = 'playoff';
+        setPlayoffPlayers(bullPlayers);
+        setPlayoffScores({});
+        setPlayoffNumber(pNum);
+        setView('playoff');
+        advanced = {
+          ...advanced,
+          view: 'playoff',
+          playoffPlayers: bullPlayers,
+          playoffNumber: pNum,
+          playoffScores: {},
+        };
       } else if (hitBull) {
         const marksMap = {};
         const dartsMap = {};
@@ -159,20 +176,28 @@ export default function App() {
           dartsMap[p.name] = stats[p.name]?.darts ?? 0;
           perfectsMap[p.name] = stats[p.name]?.perfects ?? 0;
         });
-        setTimeout(() => {
-          recordGame(players, [prev.currentPlayerIndex], prev.round, marksMap, dartsMap);
-          setFinalWinners([prev.currentPlayerIndex]);
-          setFinalStats({ rounds: prev.round, marksMap, dartsMap, perfectsMap });
-          setPlayoffScores({});
-          setPlayoffNumber(null);
-          setView('winner');
-        }, 0);
+        recordGame(players, [prev.currentPlayerIndex], prev.round, marksMap, dartsMap);
+        const fStats = { rounds: prev.round, marksMap, dartsMap, perfectsMap };
+        nextView = 'winner';
+        setFinalWinners([prev.currentPlayerIndex]);
+        setFinalStats(fStats);
+        setPlayoffScores({});
+        setPlayoffNumber(null);
+        setView('winner');
+        advanced = {
+          ...advanced,
+          view: 'winner',
+          finalWinners: [prev.currentPlayerIndex],
+          finalStats: fStats,
+          playoffScores: {},
+          playoffNumber: null,
+        };
       }
 
       // Did the round just complete?
       const roundJustEnded = nextIdx === 0;
 
-      if (!hitBull && bullPlayers.length < 2 && roundJustEnded) {
+      if (nextView === 'scoring' && !hitBull && bullPlayers.length < 2 && roundJustEnded) {
         // Collect all players who hit bull this round
         const hitters = players
           .map((p, i) => ({ p, i }))
@@ -189,30 +214,45 @@ export default function App() {
             dartsMap[p.name] = stats[p.name]?.darts ?? 0;
             perfectsMap[p.name] = stats[p.name]?.perfects ?? 0;
           });
-          setTimeout(() => {
-            recordGame(players, hitters, prev.round, marksMap, dartsMap);
-            setFinalWinners(hitters);
-            setFinalStats({ rounds: prev.round, marksMap, dartsMap, perfectsMap });
-            setPlayoffNumber(null);
-            setView('winner');
-          }, 0);
+          recordGame(players, hitters, prev.round, marksMap, dartsMap);
+          const fStats = { rounds: prev.round, marksMap, dartsMap, perfectsMap };
+          nextView = 'winner';
+          setFinalWinners(hitters);
+          setFinalStats(fStats);
+          setPlayoffNumber(null);
+          setView('winner');
+          advanced = {
+            ...advanced,
+            view: 'winner',
+            finalWinners: hitters,
+            finalStats: fStats,
+            playoffNumber: null,
+          };
         } else if (hitters.length > 1) {
-          setTimeout(() => {
-            setPlayoffPlayers(hitters);
-            setPlayoffScores({});
-            setPlayoffNumber(choosePlayoffNumber());
-            setView('playoff');
-          }, 0);
+          const pNum = choosePlayoffNumber();
+          nextView = 'playoff';
+          setPlayoffPlayers(hitters);
+          setPlayoffScores({});
+          setPlayoffNumber(pNum);
+          setView('playoff');
+          advanced = {
+            ...advanced,
+            view: 'playoff',
+            playoffPlayers: hitters,
+            playoffNumber: pNum,
+            playoffScores: {},
+          };
         }
       }
 
-      // Broadcast the advanced state to other devices in the room
-      setTimeout(() => broadcast(advanced), 0);
+      if (nextView === 'scoring') {
+        setView('scoring');
+        advanced = { ...advanced, view: 'scoring' };
+      }
 
+      setTimeout(() => broadcast(advanced), 0);
       return advanced;
     });
-
-    setView('scoring');
   }, [broadcast]);
 
   // --- Playoff complete ---
@@ -229,10 +269,36 @@ export default function App() {
     });
     recordGame(game.players, winners, game.round, marksMap, dartsMap);
 
+    const fStats = { rounds: game.round, marksMap, dartsMap, perfectsMap };
     setFinalWinners(winners);
-    setFinalStats({ rounds: game.round, marksMap, dartsMap, perfectsMap });
+    setFinalStats(fStats);
     setPlayoffScores(scores);
     setView('winner');
+
+    broadcast({
+      ...game,
+      view: 'winner',
+      finalWinners: winners,
+      finalStats: fStats,
+      playoffScores: scores,
+    });
+  }
+
+  function handlePlayoffTie(tiedPlayers) {
+    const newNum = choosePlayoffNumber();
+    setPlayoffPlayers(tiedPlayers);
+    setPlayoffScores({});
+    setPlayoffNumber(newNum);
+    setView('playoff');
+    if (game) {
+      broadcast({
+        ...game,
+        view: 'playoff',
+        playoffPlayers: tiedPlayers,
+        playoffNumber: newNum,
+        playoffScores: {},
+      });
+    }
   }
 
   // --- Restart ---
@@ -348,6 +414,7 @@ export default function App() {
         playoffPlayers={playoffPlayers}
         playoffNumber={playoffNumber}
         onPlayoffComplete={handlePlayoffComplete}
+        onPlayoffTie={handlePlayoffTie}
       />
     );
   }
@@ -360,14 +427,31 @@ export default function App() {
     skipCount++;
   }
   if (g !== game && !g.players[g.currentPlayerIndex].finished) {
-    // State drifted — sync up (this handles the case where we come back
-    // from scoreboard view and the current player index needs adjusting)
     setGame(g);
   }
 
-  // All players finished; winner/playoff view transition is pending via setTimeout
+  // All players finished; winner/playoff view transition is active or pending
   if (g.players[g.currentPlayerIndex].finished) {
-    return null;
+    if (view === 'playoff') {
+      return (
+        <PlayoffScreen
+          game={game}
+          playoffPlayers={playoffPlayers}
+          playoffNumber={playoffNumber}
+          onPlayoffComplete={handlePlayoffComplete}
+          onPlayoffTie={handlePlayoffTie}
+        />
+      );
+    }
+    return (
+      <div className="screen">
+        <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🎯</div>
+          <h2>Game Complete!</h2>
+          <p style={{ color: 'var(--muted)', marginTop: '0.5rem' }}>Loading results…</p>
+        </div>
+      </div>
+    );
   }
 
   const currentPlayer = g.players[g.currentPlayerIndex];

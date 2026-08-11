@@ -8,7 +8,7 @@ import { useState } from 'react';
  *   Perfect throw (all 3 hit) gives 3 bonus darts.
  */
 
-export default function PlayoffScreen({ game, playoffPlayers, playoffNumber, onPlayoffComplete }) {
+export default function PlayoffScreen({ game, playoffPlayers, playoffNumber, onPlayoffComplete, onPlayoffTie }) {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [scores, setScores] = useState({}); // playerIndex -> total hits
   const [darts, setDarts] = useState([]);
@@ -31,12 +31,12 @@ export default function PlayoffScreen({ game, playoffPlayers, playoffNumber, onP
       const prevScore = scores[playerIdx] || 0;
 
       if (allHit) {
-        // Perfect throw
+        // Perfect throw — 3 bonus darts
         setScores(prev => ({ ...prev, [playerIdx]: prevScore + hitCount }));
         setExtraSets(s => s + 1);
         setDarts([]);
       } else {
-        // Done
+        // Turn complete
         const finalScore = prevScore + hitCount;
         const newScores = { ...scores, [playerIdx]: finalScore };
         setScores(newScores);
@@ -48,10 +48,14 @@ export default function PlayoffScreen({ game, playoffPlayers, playoffNumber, onP
   function advancePlayer(newScores) {
     const nextIdx = currentIdx + 1;
     if (nextIdx >= playoffPlayers.length) {
-      // All done – find winner(s)
+      // All playoff players done – find winner(s)
       const maxScore = Math.max(...Object.values(newScores));
       const winners = playoffPlayers.filter(pi => (newScores[pi] || 0) === maxScore);
-      onPlayoffComplete(winners, newScores);
+      if (winners.length > 1 && typeof onPlayoffTie === 'function') {
+        onPlayoffTie(winners);
+      } else {
+        onPlayoffComplete(winners, newScores);
+      }
     } else {
       setCurrentIdx(nextIdx);
       setDarts([]);
