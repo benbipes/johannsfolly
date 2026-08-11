@@ -52,17 +52,22 @@ export default function ScoringScreen({ game, player, playerIndex, myPlayerName,
     const newDarts = [...darts, type];
     setDarts(newDarts);
 
+    const { newTargetIndex, isPerfect, hitBull } = processDarts(
+      { targetIndex: simulatedTargetIndex },
+      newDarts,
+    );
+    const allTurnDarts = [...turnDarts, ...newDarts];
+
+    if (hitBull) {
+      onTurnComplete(newTargetIndex, allTurnDarts, true);
+      return;
+    }
+
     if (newDarts.length === 3) {
       // Process this set
-      const { newTargetIndex, isPerfect, hitBull } = processDarts(
-        { targetIndex: simulatedTargetIndex },
-        newDarts,
-      );
-      const allTurnDarts = [...turnDarts, ...newDarts];
-
-      if (hitBull || !isPerfect) {
+      if (!isPerfect) {
         // Turn ends
-        onTurnComplete(newTargetIndex, allTurnDarts, hitBull);
+        onTurnComplete(newTargetIndex, allTurnDarts, false);
       } else {
         // Perfect throw! Immediately continue with the next set
         setSimulatedTargetIndex(newTargetIndex);

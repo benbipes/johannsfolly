@@ -65,7 +65,7 @@ export default function Setup({ onStart, solo = false, initialNames = null }) {
         <p>Start at <strong style={{color:'var(--text)'}}>20</strong>, work down to <strong style={{color:'var(--accent)'}}>Bull</strong>.</p>
         <p>Hit = advance 1 · Double = +2 · Triple = +3</p>
         <p>All 3 darts score = <strong style={{color:'var(--accent2)'}}>Perfect Throw</strong> → 3 bonus darts!</p>
-        <p>First to Bull wins. Tie = playoff!</p>
+        <p>Reach Bull, then hit Bull to win. Tie = playoff!</p>
       </div>
 
       <div className="spacer" />
