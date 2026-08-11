@@ -48,27 +48,30 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
   // Joiner: register self in localStorage and network so host can discover them
   useEffect(() => {
     if (isHost || !myPlayerName) return;
-    const channel = new BroadcastChannel(`jf:room:${roomCode}`);
     const announce = () => {
       setRoomPlayerPresence(roomCode, myPlayerName);
-      channel.postMessage({ type: 'room_joined', playerName: myPlayerName });
+      try {
+        const channel = new BroadcastChannel(`jf:room:${roomCode}`);
+        channel.postMessage({ type: 'room_joined', playerName: myPlayerName });
+        channel.close();
+      } catch { /* ignore */ }
       publishNetworkRoomEvent(roomCode, { type: 'room_joined', playerName: myPlayerName });
     };
-    const leaveRoom = () => {
+
+    const handleUnload = () => {
       removeRoomPlayerPresence(roomCode, myPlayerName);
-      channel.postMessage({ type: 'room_left', playerName: myPlayerName });
       publishNetworkRoomEvent(roomCode, { type: 'room_left', playerName: myPlayerName });
     };
+
     announce();
-    const id = setInterval(announce, 2000);
-    window.addEventListener('beforeunload', leaveRoom);
-    window.addEventListener('pagehide', leaveRoom);
+    const id = setInterval(announce, 3000);
+    window.addEventListener('beforeunload', handleUnload);
+    window.addEventListener('pagehide', handleUnload);
+
     return () => {
       clearInterval(id);
-      window.removeEventListener('beforeunload', leaveRoom);
-      window.removeEventListener('pagehide', leaveRoom);
-      leaveRoom();
-      channel.close();
+      window.removeEventListener('beforeunload', handleUnload);
+      window.removeEventListener('pagehide', handleUnload);
     };
   }, [isHost, roomCode, myPlayerName]);
 
@@ -76,11 +79,36 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
   useEffect(() => {
     if (!isHost) return;
     const channel = new BroadcastChannel(`jf:room:${roomCode}`);
-    function syncJoiners(directPlayerName = null) {
+    const activeJoinersMap = new Map(); // normName -> { originalName, lastSeen }
+
+    function syncJoiners(directPlayerName = null, isLeft = false) {
+      if (isLeft && directPlayerName) {
+        activeJoinersMap.delete(directPlayerName.trim().toLowerCase());
+      } else if (directPlayerName) {
+        activeJoinersMap.set(directPlayerName.trim().toLowerCase(), {
+          originalName: directPlayerName.trim(),
+          lastSeen: Date.now(),
+        });
+      }
+
       const joinedFromStorage = getActiveRoomPlayers(roomCode);
-      const joined = directPlayerName
-        ? [...new Set([...joinedFromStorage, directPlayerName])]
-        : joinedFromStorage;
+      joinedFromStorage.forEach(name => {
+        const norm = name.trim().toLowerCase();
+        if (norm) {
+          activeJoinersMap.set(norm, {
+            originalName: name.trim(),
+            lastSeen: Date.now(),
+          });
+        }
+      });
+
+      const now = Date.now();
+      const currentStorageNorms = joinedFromStorage.map(n => n.toLowerCase());
+      for (const [norm, data] of activeJoinersMap.entries()) {
+        if (now - data.lastSeen > 15000 && !currentStorageNorms.includes(norm)) {
+          activeJoinersMap.delete(norm);
+        }
+      }
 
       setNames(prev => {
         const hostName = prev[0] ?? myPlayerName ?? '';
@@ -89,8 +117,8 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
         if (hostNormalized) existing.add(hostNormalized);
 
         const nextJoined = [];
-        for (const name of joined) {
-          const trimmed = name.trim();
+        for (const data of activeJoinersMap.values()) {
+          const trimmed = data.originalName;
           const normalized = trimmed.toLowerCase();
           if (!normalized || existing.has(normalized)) continue;
           existing.add(normalized);
@@ -99,36 +127,40 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
         }
         const next = [hostName, ...nextJoined];
         localStorage.setItem(`room-players-list:${roomCode}`, JSON.stringify(next));
-        channel.postMessage({ type: 'player_list', players: next });
+        try {
+          channel.postMessage({ type: 'player_list', players: next });
+        } catch { /* ignore */ }
         publishNetworkRoomEvent(roomCode, { type: 'player_list', players: next });
         return next;
       });
     }
+
     function handleStorage(event) {
       if (!event.key || event.key.startsWith(`room-player:${roomCode}:`)) {
         syncJoiners();
       }
     }
+
     channel.onmessage = (event) => {
       if (event.data?.type === 'room_joined') {
-        syncJoiners(event.data?.playerName);
+        syncJoiners(event.data?.playerName, false);
       } else if (event.data?.type === 'room_left') {
-        syncJoiners();
+        syncJoiners(event.data?.playerName, true);
       }
     };
 
     // Cross-device network listener for Host
     const unsubscribeNet = subscribeNetworkRoom(roomCode, (event) => {
       if (event?.type === 'room_joined' && event.playerName) {
-        syncJoiners(event.playerName);
-      } else if (event?.type === 'room_left') {
-        syncJoiners();
+        syncJoiners(event.playerName, false);
+      } else if (event?.type === 'room_left' && event.playerName) {
+        syncJoiners(event.playerName, true);
       }
     });
 
     syncJoiners();
     window.addEventListener('storage', handleStorage);
-    const id = setInterval(() => syncJoiners(), 2000);
+    const id = setInterval(() => syncJoiners(), 3000);
     return () => {
       channel.close();
       window.removeEventListener('storage', handleStorage);
@@ -232,6 +264,14 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
   const filled = names.map(n => n.trim()).filter(Boolean);
   const canStart = filled.length >= 1;
 
+  function handleLeave() {
+    if (!isHost && myPlayerName) {
+      removeRoomPlayerPresence(roomCode, myPlayerName);
+      publishNetworkRoomEvent(roomCode, { type: 'room_left', playerName: myPlayerName });
+    }
+    onLeave();
+  }
+
   // ── Joiner waiting screen ─────────────────────────────────────
   if (!isHost) {
     return (
@@ -288,7 +328,7 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
 
         <div className="spacer" />
 
-        <button className="btn-secondary" style={{ width: '100%' }} onClick={onLeave}>
+        <button className="btn-secondary" style={{ width: '100%' }} onClick={handleLeave}>
           ← Leave Room
         </button>
       </div>
