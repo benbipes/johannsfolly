@@ -7,7 +7,7 @@
   --surface2: #293548;
   --border: #334155;
   --accent: #f59e0b;     /* amber — single hits, progress */
-  --accent2: #a855f7;    /* purple — triple, perfect, finished (replaces green for colorblind safety) */
+  --accent2: #c084fc;    /* purple — triple, perfect, finished (replaces green for colorblind safety) */
   --danger: #ef4444;     /* red — miss */
   --text: #f1f5f9;
   --muted: #94a3b8;
@@ -70,8 +70,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   color: var(--text);
   border: 1px solid var(--border);
 }
-.btn-danger { background: var(--danger); color: #fff; }
-.btn-success { background: var(--accent2); color: #fff; }
+.btn-danger { background: var(--danger); color: #000; }
+.btn-success { background: var(--accent2); color: #000; }
 
 /* ── Setup Screen ──────────────────────────────────────────── */
 .setup-header { text-align: center; padding: 0.5rem 0; }
