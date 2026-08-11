@@ -1,5 +1,7 @@
 const ACCOUNTS_KEY = 'jf:accounts';
 const SESSION_KEY = 'jf:session';
+const PRESENCE_PREFIX = 'jf:logged-user:';
+const PRESENCE_TTL_MS = 30000;
 
 function loadAccounts() {
   try {
@@ -11,6 +13,48 @@ function loadAccounts() {
 
 function saveAccounts(accounts) {
   localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+}
+
+function isFresh(updatedAt, ttlMs) {
+  return Number.isFinite(updatedAt) && Date.now() - updatedAt <= ttlMs;
+}
+
+export function refreshLoggedUserPresence(username) {
+  const name = username?.trim();
+  if (!name) return;
+  localStorage.setItem(`${PRESENCE_PREFIX}${name.toLowerCase()}`, JSON.stringify({
+    username: name,
+    updatedAt: Date.now(),
+  }));
+}
+
+function clearLoggedUserPresence(username) {
+  const name = username?.trim();
+  if (!name) return;
+  localStorage.removeItem(`${PRESENCE_PREFIX}${name.toLowerCase()}`);
+}
+
+export function getLoggedUsers() {
+  const users = [];
+  const staleKeys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || !key.startsWith(PRESENCE_PREFIX)) continue;
+    try {
+      const val = JSON.parse(localStorage.getItem(key));
+      const username = val?.username?.trim() ?? key.slice(PRESENCE_PREFIX.length);
+      const updatedAt = Number(val?.updatedAt);
+      if (username && isFresh(updatedAt, PRESENCE_TTL_MS)) {
+        users.push(username);
+      } else {
+        staleKeys.push(key);
+      }
+    } catch {
+      staleKeys.push(key);
+    }
+  }
+  staleKeys.forEach(key => localStorage.removeItem(key));
+  return [...new Set(users)].sort((a, b) => a.localeCompare(b));
 }
 
 /**
@@ -28,6 +72,7 @@ export function register(username, pin) {
   accounts[name.toLowerCase()] = { username: name, pin };
   saveAccounts(accounts);
   setSession(name);
+  refreshLoggedUserPresence(name);
   return { ok: true };
 }
 
@@ -46,6 +91,7 @@ export function login(username, pin) {
   if (account.pin !== pin) return { ok: false, error: 'Incorrect PIN.' };
 
   setSession(account.username);
+  refreshLoggedUserPresence(account.username);
   return { ok: true };
 }
 
@@ -60,5 +106,6 @@ export function getLoggedInUser() {
 
 /** Logs out the current user. */
 export function logout() {
+  clearLoggedUserPresence(getLoggedInUser());
   localStorage.removeItem(SESSION_KEY);
 }

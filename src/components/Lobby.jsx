@@ -1,28 +1,31 @@
 import { useState, useEffect, useRef } from 'react';
 import { getOpenRooms } from '../useGameSync.js';
+import { getLoggedUsers } from '../auth.js';
 
 export default function Lobby({ onCreateRoom, onJoinRoom, onSolo, loggedInUser, onLogout, onShowLeaderboard }) {
   const [joinCode, setJoinCode] = useState('');
   const [error, setError] = useState('');
   const [availableRooms, setAvailableRooms] = useState(() => getOpenRooms());
+  const [loggedUsers, setLoggedUsers] = useState(() => getLoggedUsers());
   const channelRef = useRef(null);
 
   // Listen for room announcements from other tabs
   useEffect(() => {
     const channel = new BroadcastChannel('jf:lobby');
     channelRef.current = channel;
-    const syncRooms = () => {
+    const syncState = () => {
       setAvailableRooms(getOpenRooms());
+      setLoggedUsers(getLoggedUsers());
     };
-    channel.onmessage = syncRooms;
+    channel.onmessage = syncState;
     // Also refresh on storage events (same browser, different tab)
     function onStorage(e) {
-      if (e.key && e.key.startsWith('room:')) {
-        syncRooms();
+      if (e.key && (e.key.startsWith('room:') || e.key.startsWith('jf:logged-user:'))) {
+        syncState();
       }
     }
-    syncRooms();
-    const id = setInterval(syncRooms, 5000);
+    syncState();
+    const id = setInterval(syncState, 5000);
     window.addEventListener('storage', onStorage);
     return () => {
       clearInterval(id);
@@ -66,6 +69,28 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onSolo, loggedInUser, 
               Logout
             </button>
           </div>
+        )}
+      </div>
+
+      <div className="card">
+        <p className="section-title" style={{ marginBottom: '0.75rem' }}>Logged Users</p>
+        {loggedUsers.length > 0 ? (
+          <div className="player-list">
+            {loggedUsers.map((name) => (
+              <div className="player-row" key={name} style={{ opacity: 0.9 }}>
+                <span style={{ flex: 1, padding: '0.4rem 0.5rem', color: 'var(--accent)' }}>
+                  👤 {name}
+                </span>
+                {name === loggedInUser && (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--muted)', paddingLeft: '0.25rem', whiteSpace: 'nowrap' }}>
+                    you
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>No logged users found.</p>
         )}
       </div>
 
