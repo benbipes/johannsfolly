@@ -12,7 +12,6 @@ export default function PlayoffScreen({ game, playoffPlayers, playoffNumber, onP
   const [currentIdx, setCurrentIdx] = useState(0);
   const [scores, setScores] = useState({}); // playerIndex -> total hits
   const [darts, setDarts] = useState([]);
-  const [extraSets, setExtraSets] = useState(0);
 
   function handleDart(type) {
     if (darts.length >= 3) return;
@@ -20,35 +19,24 @@ export default function PlayoffScreen({ game, playoffPlayers, playoffNumber, onP
     setDarts(newDarts);
 
     if (newDarts.length === 3) {
-      const hits = newDarts.filter(d => d !== 'miss');
       const hitCount = newDarts.reduce((acc, d) => {
         if (d === 'miss') return acc;
         return acc + (d === 'single' ? 1 : d === 'double' ? 2 : 3);
       }, 0);
-      const allHit = hits.length === 3;
 
       const playerIdx = playoffPlayers[currentIdx];
       const prevScore = scores[playerIdx] || 0;
-
-      if (allHit) {
-        // Perfect throw — 3 bonus darts
-        setScores(prev => ({ ...prev, [playerIdx]: prevScore + hitCount }));
-        setExtraSets(s => s + 1);
-        setDarts([]);
-      } else {
-        // Turn complete
-        const finalScore = prevScore + hitCount;
-        const newScores = { ...scores, [playerIdx]: finalScore };
-        setScores(newScores);
-        advancePlayer(newScores);
-      }
+      const finalScore = prevScore + hitCount;
+      const newScores = { ...scores, [playerIdx]: finalScore };
+      setScores(newScores);
+      advancePlayer(newScores);
     }
   }
 
   function advancePlayer(newScores) {
     const nextIdx = currentIdx + 1;
     if (nextIdx >= playoffPlayers.length) {
-      // All playoff players done – find winner(s)
+      // All playoff players done (1 round complete) – find winner(s)
       const maxScore = Math.max(...Object.values(newScores));
       const winners = playoffPlayers.filter(pi => (newScores[pi] || 0) === maxScore);
       if (winners.length > 1 && typeof onPlayoffTie === 'function') {
@@ -59,7 +47,6 @@ export default function PlayoffScreen({ game, playoffPlayers, playoffNumber, onP
     } else {
       setCurrentIdx(nextIdx);
       setDarts([]);
-      setExtraSets(0);
     }
   }
 
@@ -96,12 +83,7 @@ export default function PlayoffScreen({ game, playoffPlayers, playoffNumber, onP
         <div className="target-label">PLAYOFF — throw at</div>
         <div className="target-number">{playoffNumber}</div>
         <div className="round-label">
-          <strong>{playerName}</strong> · score so far: <strong style={{ color: 'var(--accent)' }}>{currentScore}</strong>
-          {extraSets > 0 && (
-            <span style={{ color: 'var(--accent2)', marginLeft: '0.5rem' }}>
-              ✨ ×{extraSets} perfect
-            </span>
-          )}
+          <strong>{playerName}</strong> · score: <strong style={{ color: 'var(--accent)' }}>{currentScore}</strong>
         </div>
       </div>
 
