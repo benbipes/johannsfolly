@@ -343,10 +343,15 @@ export default function App() {
     g = advanceGame(g);
     skipCount++;
   }
-  if (g !== game) {
+  if (g !== game && !g.players[g.currentPlayerIndex].finished) {
     // State drifted — sync up (this handles the case where we come back
     // from scoreboard view and the current player index needs adjusting)
     setGame(g);
+  }
+
+  // All players finished; winner/playoff view transition is pending via setTimeout
+  if (g.players[g.currentPlayerIndex].finished) {
+    return null;
   }
 
   const currentPlayer = g.players[g.currentPlayerIndex];
