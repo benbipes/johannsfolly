@@ -61,7 +61,7 @@ export default function ScoringScreen({ game, player, playerIndex, myPlayerName,
     const allTurnDarts = [...turnDarts, ...newDarts];
 
     if (hitBull) {
-      onTurnComplete(newTargetIndex, allTurnDarts, true);
+      onTurnComplete(newTargetIndex, allTurnDarts, true, perfectSets);
       return;
     }
 
@@ -69,7 +69,7 @@ export default function ScoringScreen({ game, player, playerIndex, myPlayerName,
       // Process this set
       if (!isPerfect) {
         // Turn ends
-        onTurnComplete(newTargetIndex, allTurnDarts, false);
+        onTurnComplete(newTargetIndex, allTurnDarts, false, perfectSets);
       } else {
         // Perfect throw! Immediately continue with the next set
         setSimulatedTargetIndex(newTargetIndex);
