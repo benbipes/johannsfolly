@@ -44,8 +44,10 @@ export default function ScoringScreen({ game, player, playerIndex, myPlayerName,
     { key: 'miss', label: 'Miss', sub: String(currentTarget), cls: 'btn-miss' },
     { key: 'single', label: 'Hit', sub: getTargetsForMarks(currentTargetIndex, 1), cls: 'btn-single' },
     { key: 'double', label: 'Double', sub: getTargetsForMarks(currentTargetIndex, 2), cls: 'btn-double' },
-    { key: 'triple', label: 'Triple', sub: getTargetsForMarks(currentTargetIndex, 3), cls: 'btn-triple' },
   ];
+  if (currentTargetIndex !== BULL_INDEX) {
+    dartOptions.push({ key: 'triple', label: 'Triple', sub: getTargetsForMarks(currentTargetIndex, 3), cls: 'btn-triple' });
+  }
 
   function handleDart(type) {
     if (setDone) return;
