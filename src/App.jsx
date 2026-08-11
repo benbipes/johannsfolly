@@ -44,12 +44,11 @@ export default function App() {
   const [myPlayerName, setMyPlayerName] = useState(null); // null = no identity (single-device mode)
   const [playoffPlayers, setPlayoffPlayers] = useState([]);
   const [finalWinners, setFinalWinners] = useState([]);
-  const [finalStats, setFinalStats] = useState(null); // { rounds, marksMap, dartsMap, perfectsMap }
   const [playoffScores, setPlayoffScores] = useState({});
   const [playoffNumber, setPlayoffNumber] = useState(null);
 
   // Per-player stats accumulated during the current game for leaderboard recording
-  // { [playerName]: { marks: number, darts: number, perfects: number } }
+  // { [playerName]: { marks: number, darts: number } }
   const playerStatsRef = useRef({});
 
   // Sync game state across tabs/devices in the same room
@@ -91,7 +90,7 @@ export default function App() {
 
 
   // --- Turn complete: called when a player finishes all their darts ---
-  const handleTurnComplete = useCallback((newTargetIndex, allDarts, hitBull, isPerfect) => {
+  const handleTurnComplete = useCallback((newTargetIndex, allDarts, hitBull) => {
     setGame(prev => {
       const currentPlayer = prev.players[prev.currentPlayerIndex];
       const playerName = currentPlayer.name;
@@ -104,7 +103,6 @@ export default function App() {
       stats[playerName] = {
         marks: (stats[playerName]?.marks ?? 0) + marksThisTurn,
         darts: (stats[playerName]?.darts ?? 0) + dartsThisTurn,
-        perfects: (stats[playerName]?.perfects ?? 0) + (isPerfect ? 1 : 0),
       };
       const reachedBullThisTurn = prevMarks < BULL_INDEX && newTargetIndex === BULL_INDEX;
 
@@ -139,16 +137,13 @@ export default function App() {
       } else if (hitBull) {
         const marksMap = {};
         const dartsMap = {};
-        const perfectsMap = {};
         players.forEach(p => {
           marksMap[p.name] = stats[p.name]?.marks ?? p.targetIndex;
           dartsMap[p.name] = stats[p.name]?.darts ?? 0;
-          perfectsMap[p.name] = stats[p.name]?.perfects ?? 0;
         });
         setTimeout(() => {
           recordGame(players, [prev.currentPlayerIndex], prev.round, marksMap, dartsMap);
           setFinalWinners([prev.currentPlayerIndex]);
-          setFinalStats({ rounds: prev.round, marksMap, dartsMap, perfectsMap });
           setPlayoffScores({});
           setPlayoffNumber(null);
           setView('winner');
@@ -169,16 +164,13 @@ export default function App() {
           // Sole winner — record stats and schedule view change
           const marksMap = {};
           const dartsMap = {};
-          const perfectsMap = {};
           players.forEach(p => {
             marksMap[p.name] = stats[p.name]?.marks ?? p.targetIndex;
             dartsMap[p.name] = stats[p.name]?.darts ?? 0;
-            perfectsMap[p.name] = stats[p.name]?.perfects ?? 0;
           });
           setTimeout(() => {
             recordGame(players, hitters, prev.round, marksMap, dartsMap);
             setFinalWinners(hitters);
-            setFinalStats({ rounds: prev.round, marksMap, dartsMap, perfectsMap });
             setPlayoffNumber(null);
             setView('winner');
           }, 0);
@@ -206,17 +198,14 @@ export default function App() {
     // Record the game result after playoff
     const marksMap = {};
     const dartsMap = {};
-    const perfectsMap = {};
     const stats = playerStatsRef.current;
     game.players.forEach(p => {
       marksMap[p.name] = stats[p.name]?.marks ?? p.targetIndex;
       dartsMap[p.name] = stats[p.name]?.darts ?? 0;
-      perfectsMap[p.name] = stats[p.name]?.perfects ?? 0;
     });
     recordGame(game.players, winners, game.round, marksMap, dartsMap);
 
     setFinalWinners(winners);
-    setFinalStats({ rounds: game.round, marksMap, dartsMap, perfectsMap });
     setPlayoffScores(scores);
     setView('winner');
   }
@@ -225,7 +214,6 @@ export default function App() {
   function handleRestart() {
     setGame(null);
     setFinalWinners([]);
-    setFinalStats(null);
     setPlayoffScores({});
     setPlayoffNumber(null);
     setPlayoffPlayers([]);
@@ -264,12 +252,6 @@ export default function App() {
   if (view === 'winner') {
     const winnerNames = finalWinners.map(i => game.players[i].name);
     const isPlayoff = Object.keys(playoffScores).length > 0;
-    const winnerName = winnerNames[0];
-    const rounds = finalStats?.rounds ?? game.round;
-    const winnerMarks = finalStats?.marksMap?.[winnerName] ?? BULL_INDEX;
-    const winnerDarts = finalStats?.dartsMap?.[winnerName] ?? 0;
-    const winnerPerfects = finalStats?.perfectsMap?.[winnerName] ?? 0;
-    const mpr = rounds > 0 ? (winnerMarks / rounds).toFixed(2) : '—';
     return (
       <div className="screen">
         <div className="winner-screen">
@@ -280,22 +262,6 @@ export default function App() {
               ? `Playoff winner with ${playoffScores[finalWinners[0]]} hit${playoffScores[finalWinners[0]] !== 1 ? 's' : ''}!`
               : 'Closed on the Bullseye!'}
           </p>
-        </div>
-
-        <div className="card">
-          <p className="section-title" style={{ marginBottom: '0.5rem' }}>Game Results — {winnerName}</p>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0' }}>
-            <span>Rounds taken</span>
-            <strong style={{ color: 'var(--accent)' }}>{rounds}</strong>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0' }}>
-            <span>MPR (marks per round)</span>
-            <strong style={{ color: 'var(--accent)' }}>{mpr}</strong>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0' }}>
-            <span>Perfect throws</span>
-            <strong style={{ color: 'var(--accent2)' }}>{winnerPerfects}</strong>
-          </div>
         </div>
 
         {isPlayoff && (
@@ -338,10 +304,8 @@ export default function App() {
 
   // scoring view — skip finished players automatically
   let g = game;
-  let skipCount = 0;
-  while (g.players[g.currentPlayerIndex].finished && skipCount < g.players.length) {
+  while (g.players[g.currentPlayerIndex].finished) {
     g = advanceGame(g);
-    skipCount++;
   }
   if (g !== game) {
     // State drifted — sync up (this handles the case where we come back
