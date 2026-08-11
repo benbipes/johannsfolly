@@ -9,7 +9,7 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onSolo, loggedInUser, 
   const [loggedUsers, setLoggedUsers] = useState(() => getLoggedUsers());
   const channelRef = useRef(null);
 
-  // Listen for room announcements from other tabs
+  // Listen for room announcements and presence updates from other tabs
   useEffect(() => {
     const channel = new BroadcastChannel('jf:lobby');
     channelRef.current = channel;
@@ -20,19 +20,19 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onSolo, loggedInUser, 
     channel.onmessage = syncState;
     // Also refresh on storage events (same browser, different tab)
     function onStorage(e) {
-      if (e.key && (e.key.startsWith('room:') || e.key.startsWith('jf:logged-user:'))) {
+      if (!e.key || e.key.startsWith('room:') || e.key.startsWith('jf:logged-user:')) {
         syncState();
       }
     }
     syncState();
-    const id = setInterval(syncState, 5000);
+    const id = setInterval(syncState, 2000);
     window.addEventListener('storage', onStorage);
     return () => {
       clearInterval(id);
       channel.close();
       window.removeEventListener('storage', onStorage);
     };
-  }, []);
+  }, [loggedInUser]);
   const [joinError, setJoinError] = useState('');
 
   function handleCreate() {

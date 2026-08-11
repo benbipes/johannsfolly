@@ -56,7 +56,7 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
       channel.postMessage({ type: 'room_left', playerName: myPlayerName });
     };
     announce();
-    const id = setInterval(announce, 5000);
+    const id = setInterval(announce, 2000);
     window.addEventListener('beforeunload', leaveRoom);
     window.addEventListener('pagehide', leaveRoom);
     return () => {
@@ -75,25 +75,30 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
   useEffect(() => {
     if (!isHost) return;
     const channel = new BroadcastChannel(`jf:room:${roomCode}`);
-    function syncJoiners() {
-      const joined = getActiveRoomPlayers(roomCode);
+    function syncJoiners(directPlayerName = null) {
+      const joinedFromStorage = getActiveRoomPlayers(roomCode);
+      const joined = directPlayerName
+        ? [...new Set([...joinedFromStorage, directPlayerName])]
+        : joinedFromStorage;
+
       setNames(prev => {
-        const hostName = prev[0] ?? '';
-        const existing = new Set([hostName.trim().toLowerCase()]);
+        const hostName = prev[0] ?? myPlayerName ?? '';
+        const existing = new Set();
+        const hostNormalized = hostName.trim().toLowerCase();
+        if (hostNormalized) existing.add(hostNormalized);
+
         const nextJoined = [];
         for (const name of joined) {
-          const normalized = name.trim().toLowerCase();
+          const trimmed = name.trim();
+          const normalized = trimmed.toLowerCase();
           if (!normalized || existing.has(normalized)) continue;
           existing.add(normalized);
-          nextJoined.push(name);
+          nextJoined.push(trimmed);
           if (nextJoined.length >= MAX_PLAYERS - 1) break;
         }
         const next = [hostName, ...nextJoined];
-        // Only broadcast/persist if the list actually changed
-        if (next.join(',') !== prev.join(',')) {
-          localStorage.setItem(`room-players-list:${roomCode}`, JSON.stringify(next));
-          channel.postMessage({ type: 'player_list', players: next });
-        }
+        localStorage.setItem(`room-players-list:${roomCode}`, JSON.stringify(next));
+        channel.postMessage({ type: 'player_list', players: next });
         return next;
       });
     }
@@ -103,28 +108,35 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
       }
     }
     channel.onmessage = (event) => {
-      if (event.data?.type === 'room_joined' || event.data?.type === 'room_left') {
+      if (event.data?.type === 'room_joined') {
+        syncJoiners(event.data?.playerName);
+      } else if (event.data?.type === 'room_left') {
         syncJoiners();
       }
     };
     syncJoiners();
     window.addEventListener('storage', handleStorage);
-    const id = setInterval(syncJoiners, 5000);
+    const id = setInterval(() => syncJoiners(), 2000);
     return () => {
       channel.close();
       window.removeEventListener('storage', handleStorage);
       clearInterval(id);
     };
-  }, [isHost, roomCode]);
+  }, [isHost, roomCode, myPlayerName]);
 
   // Joiner: listen for game start and player list updates via BroadcastChannel
   useEffect(() => {
     if (isHost) return;
-    // Pick up any previously broadcast player list (for late arrivals)
-    try {
-      const stored = localStorage.getItem(`room-players-list:${roomCode}`);
-      if (stored) setAllPlayers(JSON.parse(stored).filter(Boolean));
-    } catch { /* ignore */ }
+    const readStoredList = () => {
+      try {
+        const stored = localStorage.getItem(`room-players-list:${roomCode}`);
+        if (stored) {
+          const list = JSON.parse(stored).filter(Boolean);
+          if (list.length > 0) setAllPlayers(list);
+        }
+      } catch { /* ignore */ }
+    };
+    readStoredList();
     const channel = new BroadcastChannel(`jf:room:${roomCode}`);
     channelRef.current = channel;
     channel.onmessage = (event) => {
@@ -134,11 +146,31 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
         setAllPlayers(event.data.players.filter(Boolean));
       }
     };
-    return () => channel.close();
+    function handleStorage(event) {
+      if (!event.key || event.key === `room-players-list:${roomCode}`) {
+        readStoredList();
+      }
+    }
+    window.addEventListener('storage', handleStorage);
+    const id = setInterval(readStoredList, 2000);
+    return () => {
+      channel.close();
+      window.removeEventListener('storage', handleStorage);
+      clearInterval(id);
+    };
   }, [isHost, roomCode]);
 
   function updateName(i, val) {
-    setNames(prev => prev.map((n, idx) => (idx === i ? val : n)));
+    setNames(prev => {
+      const next = prev.map((n, idx) => (idx === i ? val : n));
+      try {
+        localStorage.setItem(`room-players-list:${roomCode}`, JSON.stringify(next));
+        const channel = new BroadcastChannel(`jf:room:${roomCode}`);
+        channel.postMessage({ type: 'player_list', players: next });
+        channel.close();
+      } catch { /* ignore */ }
+      return next;
+    });
   }
 
   function handleStart() {

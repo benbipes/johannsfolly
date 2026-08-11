@@ -19,6 +19,14 @@ function isFresh(updatedAt, ttlMs) {
   return Number.isFinite(updatedAt) && Date.now() - updatedAt <= ttlMs;
 }
 
+export function broadcastLobbyUpdate() {
+  try {
+    const ch = new BroadcastChannel('jf:lobby');
+    ch.postMessage({ type: 'presence_update' });
+    ch.close();
+  } catch { /* ignore */ }
+}
+
 export function refreshLoggedUserPresence(username) {
   const name = username?.trim();
   if (!name) return;
@@ -26,12 +34,14 @@ export function refreshLoggedUserPresence(username) {
     username: name,
     updatedAt: Date.now(),
   }));
+  broadcastLobbyUpdate();
 }
 
 function clearLoggedUserPresence(username) {
   const name = username?.trim();
   if (!name) return;
   localStorage.removeItem(`${PRESENCE_PREFIX}${name.toLowerCase()}`);
+  broadcastLobbyUpdate();
 }
 
 export function getLoggedUsers() {
@@ -96,16 +106,21 @@ export function login(username, pin) {
 }
 
 function setSession(username) {
+  sessionStorage.setItem(SESSION_KEY, username);
   localStorage.setItem(SESSION_KEY, username);
 }
 
 /** Returns the logged-in username, or null if not logged in. */
 export function getLoggedInUser() {
-  return localStorage.getItem(SESSION_KEY) ?? null;
+  return sessionStorage.getItem(SESSION_KEY) ?? localStorage.getItem(SESSION_KEY) ?? null;
 }
 
 /** Logs out the current user. */
 export function logout() {
-  clearLoggedUserPresence(getLoggedInUser());
+  const user = getLoggedInUser();
+  clearLoggedUserPresence(user);
+  sessionStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(SESSION_KEY);
+  broadcastLobbyUpdate();
 }
+

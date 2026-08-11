@@ -52,8 +52,14 @@ export default function App() {
     if (!loggedInUser) return;
     const heartbeat = () => refreshLoggedUserPresence(loggedInUser);
     heartbeat();
-    const id = setInterval(heartbeat, 10000);
-    return () => clearInterval(id);
+    const id = setInterval(heartbeat, 5000);
+    window.addEventListener('beforeunload', heartbeat);
+    window.addEventListener('pagehide', heartbeat);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener('beforeunload', heartbeat);
+      window.removeEventListener('pagehide', heartbeat);
+    };
   }, [loggedInUser]);
 
   // Per-player stats accumulated during the current game for leaderboard recording
