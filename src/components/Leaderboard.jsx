@@ -19,21 +19,10 @@ function relativeDate(isoString) {
 
 export default function Leaderboard({ onClose }) {
   const [entries, setEntries] = useState([]);
-  const [confirmClear, setConfirmClear] = useState(false);
 
   useEffect(() => {
     setEntries(getLeaderboard());
   }, []);
-
-  function handleClear() {
-    if (!confirmClear) {
-      setConfirmClear(true);
-      return;
-    }
-    clearLeaderboard();
-    setEntries([]);
-    setConfirmClear(false);
-  }
 
   return (
     <div className="screen">
@@ -111,25 +100,6 @@ export default function Leaderboard({ onClose }) {
           </div>
         </>
       )}
-
-      <div style={{ marginTop: 'auto', paddingTop: '1rem' }}>
-        <button
-          className={confirmClear ? 'btn-danger' : 'btn-secondary'}
-          style={{ width: '100%', fontSize: '0.85rem' }}
-          onClick={handleClear}
-        >
-          {confirmClear ? '⚠️ Tap again to confirm reset' : '🗑️ Reset Leaderboard'}
-        </button>
-        {confirmClear && (
-          <button
-            className="btn-secondary"
-            style={{ width: '100%', fontSize: '0.85rem', marginTop: '0.5rem' }}
-            onClick={() => setConfirmClear(false)}
-          >
-            Cancel
-          </button>
-        )}
-      </div>
     </div>
   );
 }
