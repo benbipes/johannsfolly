@@ -128,84 +128,37 @@ export default function App() {
         darts: (stats[playerName]?.darts ?? 0) + dartsThisTurn,
         perfects: (stats[playerName]?.perfects ?? 0) + (isPerfect ? 1 : 0),
       };
-      const reachedBullThisTurn = prevMarks < BULL_INDEX && newTargetIndex === BULL_INDEX;
 
       // Update current player's progress
+      const isFinished = hitBull || newTargetIndex === BULL_INDEX;
       const players = prev.players.map((p, i) => {
         if (i !== prev.currentPlayerIndex) return p;
         return {
           ...p,
           targetIndex: newTargetIndex,
-          finished: hitBull,
-          finishedRound: hitBull ? prev.round : p.finishedRound,
+          finished: p.finished || isFinished,
+          finishedRound: isFinished ? (p.finishedRound ?? prev.round) : p.finishedRound,
         };
       });
 
       // Advance to next player
       const nextIdx = (prev.currentPlayerIndex + 1) % players.length;
-      const newRound = nextIdx === 0 ? prev.round + 1 : prev.round;
+      const roundJustEnded = nextIdx === 0;
+      const newRound = roundJustEnded ? prev.round + 1 : prev.round;
       let advanced = { ...prev, players, currentPlayerIndex: nextIdx, round: newRound };
-
-      const bullPlayers = players
-        .map((p, i) => ({ p, i }))
-        .filter(({ p }) => p.targetIndex === BULL_INDEX)
-        .map(({ i }) => i);
 
       let nextView = 'scoring';
 
-      if ((reachedBullThisTurn || hitBull) && bullPlayers.length > 1) {
-        const pNum = choosePlayoffNumber();
-        nextView = 'playoff';
-        setPlayoffPlayers(bullPlayers);
-        setPlayoffScores({});
-        setPlayoffNumber(pNum);
-        setView('playoff');
-        advanced = {
-          ...advanced,
-          view: 'playoff',
-          playoffPlayers: bullPlayers,
-          playoffNumber: pNum,
-          playoffScores: {},
-        };
-      } else if (hitBull) {
-        const marksMap = {};
-        const dartsMap = {};
-        const perfectsMap = {};
-        players.forEach(p => {
-          marksMap[p.name] = stats[p.name]?.marks ?? p.targetIndex;
-          dartsMap[p.name] = stats[p.name]?.darts ?? 0;
-          perfectsMap[p.name] = stats[p.name]?.perfects ?? 0;
-        });
-        recordGame(players, [prev.currentPlayerIndex], prev.round, marksMap, dartsMap);
-        const fStats = { rounds: prev.round, marksMap, dartsMap, perfectsMap };
-        nextView = 'winner';
-        setFinalWinners([prev.currentPlayerIndex]);
-        setFinalStats(fStats);
-        setPlayoffScores({});
-        setPlayoffNumber(null);
-        setView('winner');
-        advanced = {
-          ...advanced,
-          view: 'winner',
-          finalWinners: [prev.currentPlayerIndex],
-          finalStats: fStats,
-          playoffScores: {},
-          playoffNumber: null,
-        };
-      }
-
-      // Did the round just complete?
-      const roundJustEnded = nextIdx === 0;
-
-      if (nextView === 'scoring' && !hitBull && bullPlayers.length < 2 && roundJustEnded) {
-        // Collect all players who hit bull this round
-        const hitters = players
+      // Evaluate winner / tie playoff ONLY when the full round has completed
+      if (roundJustEnded) {
+        const bullPlayers = players
           .map((p, i) => ({ p, i }))
-          .filter(({ p }) => p.finished && p.finishedRound === prev.round)
+          .filter(({ p }) => p.targetIndex === BULL_INDEX || p.finished)
           .map(({ i }) => i);
 
-        if (hitters.length === 1) {
-          // Sole winner — record stats and schedule view change
+        if (bullPlayers.length === 1) {
+          // Sole winner at the end of the round
+          const winnerIdx = bullPlayers[0];
           const marksMap = {};
           const dartsMap = {};
           const perfectsMap = {};
@@ -214,31 +167,34 @@ export default function App() {
             dartsMap[p.name] = stats[p.name]?.darts ?? 0;
             perfectsMap[p.name] = stats[p.name]?.perfects ?? 0;
           });
-          recordGame(players, hitters, prev.round, marksMap, dartsMap);
+          recordGame(players, [winnerIdx], prev.round, marksMap, dartsMap);
           const fStats = { rounds: prev.round, marksMap, dartsMap, perfectsMap };
           nextView = 'winner';
-          setFinalWinners(hitters);
+          setFinalWinners([winnerIdx]);
           setFinalStats(fStats);
+          setPlayoffScores({});
           setPlayoffNumber(null);
           setView('winner');
           advanced = {
             ...advanced,
             view: 'winner',
-            finalWinners: hitters,
+            finalWinners: [winnerIdx],
             finalStats: fStats,
+            playoffScores: {},
             playoffNumber: null,
           };
-        } else if (hitters.length > 1) {
+        } else if (bullPlayers.length > 1) {
+          // Multiple players reached Bull by end of round -> Playoff tiebreaker!
           const pNum = choosePlayoffNumber();
           nextView = 'playoff';
-          setPlayoffPlayers(hitters);
+          setPlayoffPlayers(bullPlayers);
           setPlayoffScores({});
           setPlayoffNumber(pNum);
           setView('playoff');
           advanced = {
             ...advanced,
             view: 'playoff',
-            playoffPlayers: hitters,
+            playoffPlayers: bullPlayers,
             playoffNumber: pNum,
             playoffScores: {},
           };
