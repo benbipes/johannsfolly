@@ -325,6 +325,15 @@ export default function ScoringScreen({ game, player, playerIndex, myPlayerName,
       {setDone && (
         <div style={{ textAlign: 'center', color: 'var(--muted)' }}>Calculating…</div>
       )}
+
+      {/* Game logo brand footer */}
+      <div style={{ textAlign: 'center', marginTop: '1.25rem', marginBottom: '0.5rem', opacity: 0.85 }}>
+        <img
+          src="/logo.png"
+          alt="Johann's Folly"
+          style={{ height: '32px', width: 'auto', display: 'inline-block', objectFit: 'contain' }}
+        />
+      </div>
     </div>
   );
 }
