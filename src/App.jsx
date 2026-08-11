@@ -47,6 +47,7 @@ export default function App() {
   const [finalStats, setFinalStats] = useState(null); // { rounds, marksMap, dartsMap, perfectsMap }
   const [playoffScores, setPlayoffScores] = useState({});
   const [playoffNumber, setPlayoffNumber] = useState(null);
+  const [playoffCurrentIdx, setPlayoffCurrentIdx] = useState(0);
 
   useEffect(() => {
     if (!loggedInUser) return;
@@ -74,6 +75,7 @@ export default function App() {
       if (remoteGame.playoffPlayers) setPlayoffPlayers(remoteGame.playoffPlayers);
       if (remoteGame.playoffNumber !== undefined) setPlayoffNumber(remoteGame.playoffNumber);
       if (remoteGame.playoffScores) setPlayoffScores(remoteGame.playoffScores);
+      if (remoteGame.playoffCurrentIdx !== undefined) setPlayoffCurrentIdx(remoteGame.playoffCurrentIdx);
       if (remoteGame.finalWinners) setFinalWinners(remoteGame.finalWinners);
       if (remoteGame.finalStats) setFinalStats(remoteGame.finalStats);
     }
@@ -190,6 +192,7 @@ export default function App() {
           setPlayoffPlayers(bullPlayers);
           setPlayoffScores({});
           setPlayoffNumber(pNum);
+          setPlayoffCurrentIdx(0);
           setView('playoff');
           advanced = {
             ...advanced,
@@ -197,6 +200,7 @@ export default function App() {
             playoffPlayers: bullPlayers,
             playoffNumber: pNum,
             playoffScores: {},
+            playoffCurrentIdx: 0,
           };
         }
       }
@@ -240,14 +244,16 @@ export default function App() {
     });
   }
 
-  const handlePlayoffUpdate = useCallback((newScores) => {
-    setPlayoffScores(newScores);
+  const handlePlayoffUpdate = useCallback((newScores, newCurrentIdx) => {
+    if (newScores) setPlayoffScores(newScores);
+    if (typeof newCurrentIdx === 'number') setPlayoffCurrentIdx(newCurrentIdx);
     setGame(prev => {
       if (!prev) return prev;
       const updated = {
         ...prev,
         view: 'playoff',
-        playoffScores: newScores,
+        playoffScores: newScores ?? prev.playoffScores,
+        playoffCurrentIdx: typeof newCurrentIdx === 'number' ? newCurrentIdx : (prev.playoffCurrentIdx ?? 0),
       };
       setTimeout(() => broadcast(updated), 0);
       return updated;
@@ -373,6 +379,7 @@ export default function App() {
         playoffPlayers={playoffPlayers}
         playoffNumber={playoffNumber}
         playoffScores={playoffScores}
+        playoffCurrentIdx={playoffCurrentIdx}
         myPlayerName={myPlayerName}
         onPlayoffComplete={handlePlayoffComplete}
         onPlayoffUpdate={handlePlayoffUpdate}
@@ -400,6 +407,7 @@ export default function App() {
           playoffPlayers={playoffPlayers}
           playoffNumber={playoffNumber}
           playoffScores={playoffScores}
+          playoffCurrentIdx={playoffCurrentIdx}
           myPlayerName={myPlayerName}
           onPlayoffComplete={handlePlayoffComplete}
           onPlayoffUpdate={handlePlayoffUpdate}

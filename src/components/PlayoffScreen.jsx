@@ -15,21 +15,22 @@ export default function PlayoffScreen({
   playoffPlayers = [],
   playoffNumber,
   playoffScores = {},
+  playoffCurrentIdx = 0,
   myPlayerName,
   onPlayoffComplete,
   onPlayoffUpdate,
 }) {
-  const [currentIdx, setCurrentIdx] = useState(0);
   const [localScores, setLocalScores] = useState({}); // playerIndex -> total hits
   const [darts, setDarts] = useState([]);
   const [extraSets, setExtraSets] = useState(0);
 
   // Combine parent scores with local scores
   const mergedScores = { ...playoffScores, ...localScores };
+  const currentIdx = typeof playoffCurrentIdx === 'number' ? playoffCurrentIdx : 0;
 
   // Determine if the logged-in user is a playoff participant
   const isParticipant = myPlayerName
-    ? playoffPlayers.some(pi => game.players[pi]?.name?.trim().toLowerCase() === myPlayerName.trim().toLowerCase())
+    ? playoffPlayers.some(pi => game?.players[pi]?.name?.trim().toLowerCase() === myPlayerName.trim().toLowerCase())
     : true; // fallback if no login name set
 
   const activePlayerIdx = playoffPlayers[currentIdx];
@@ -59,14 +60,13 @@ export default function PlayoffScreen({
       const newScores = { ...mergedScores, [playerIdx]: updatedScore };
       setLocalScores(newScores);
 
-      if (typeof onPlayoffUpdate === 'function') {
-        onPlayoffUpdate(newScores);
-      }
-
       if (isPerfectSet) {
         // Perfect throw! Keep throwing 3 more bonus darts
         setExtraSets(s => s + 1);
         setDarts([]);
+        if (typeof onPlayoffUpdate === 'function') {
+          onPlayoffUpdate(newScores, currentIdx);
+        }
       } else {
         // Turn complete for this player — advance to next playoff player
         advancePlayer(newScores);
@@ -82,9 +82,11 @@ export default function PlayoffScreen({
       const winners = playoffPlayers.filter(pi => (newScores[pi] || 0) === maxScore);
       onPlayoffComplete(winners, newScores);
     } else {
-      setCurrentIdx(nextIdx);
       setDarts([]);
       setExtraSets(0);
+      if (typeof onPlayoffUpdate === 'function') {
+        onPlayoffUpdate(newScores, nextIdx);
+      }
     }
   }
 
@@ -93,7 +95,7 @@ export default function PlayoffScreen({
     setDarts(prev => prev.slice(0, -1));
   }
 
-  const playoffNames = playoffPlayers.map(pi => game.players[pi]?.name).filter(Boolean).join(', ');
+  const playoffNames = playoffPlayers.map(pi => game?.players[pi]?.name).filter(Boolean).join(', ');
   const currentScore = mergedScores[activePlayerIdx] || 0;
 
   const SLOT_ICONS = { miss: '✗', single: '🎯', double: '🎯🎯', triple: '🎯🎯🎯' };
@@ -122,7 +124,7 @@ export default function PlayoffScreen({
         <div className="card">
           <p className="section-title" style={{ marginBottom: '0.75rem' }}>Playoff Scores</p>
           {playoffPlayers.map((pi, idx) => {
-            const p = game.players[pi];
+            const p = game?.players[pi];
             const isCurrent = idx === currentIdx;
             const score = mergedScores[pi] || 0;
             return (
@@ -190,7 +192,7 @@ export default function PlayoffScreen({
           <p className="section-title" style={{ marginBottom: '0.5rem' }}>Scores so far</p>
           {playoffPlayers.map(pi => (
             <div key={pi} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0', fontSize: '0.9rem' }}>
-              <span>{game.players[pi]?.name}</span>
+              <span>{game?.players[pi]?.name}</span>
               <strong style={{ color: 'var(--accent)' }}>{mergedScores[pi] || 0}</strong>
             </div>
           ))}
