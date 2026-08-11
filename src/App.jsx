@@ -347,20 +347,26 @@ export default function App() {
           </div>
         )}
 
-        <Scoreboard game={game} />
-
-        <button className="btn-primary" style={{ marginTop: '0.5rem' }} onClick={handleRestart}>
-          New Game
-        </button>
-        <button className="btn-secondary" style={{ marginTop: '0.5rem' }} onClick={handleRestart}>
-          Return to Lobby
-        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.75rem', width: '100%' }}>
+          <button className="btn-primary" onClick={handleRestart}>
+            🏠 Exit to Main Lobby
+          </button>
+          <button className="btn-secondary" onClick={() => setView('leaderboard')}>
+            🏆 View Leaderboard & Stats
+          </button>
+          <button className="btn-secondary" onClick={() => {
+            const playerNames = game.players.map(p => p.name);
+            handleRoomStart(playerNames);
+          }}>
+            🎯 Rematch / Play Again
+          </button>
+        </div>
       </div>
     );
   }
 
-  if (view === 'scoreboard') {
-    return <Scoreboard game={game} onClose={() => setView('scoring')} />;
+  if (view === 'leaderboard') {
+    return <LeaderboardView onClose={() => setView(game?.players ? 'winner' : 'lobby')} />;
   }
 
   if (view === 'playoff') {
