@@ -28,7 +28,7 @@ export function createGame(playerNames) {
 /**
  * Process a set of dart results for the current player.
  * dartResults: array of 'miss' | 'single' | 'double' | 'triple'
- * Returns { newPlayer, isPerfect, hitBull }
+ * Returns { newTargetIndex, isPerfect, hitBull }
  */
 export function processDarts(player, dartResults) {
   let targetIndex = player.targetIndex;
@@ -40,13 +40,12 @@ export function processDarts(player, dartResults) {
       allHit = false;
       continue;
     }
-    const advance = dart === 'single' ? 1 : dart === 'double' ? 2 : 3;
-    const newIndex = Math.min(targetIndex + advance, BULL_INDEX);
-    targetIndex = newIndex;
     if (targetIndex === BULL_INDEX) {
       hitBull = true;
       break;
     }
+    const advance = dart === 'single' ? 1 : dart === 'double' ? 2 : 3;
+    targetIndex = Math.min(targetIndex + advance, BULL_INDEX);
   }
 
   const isPerfect = allHit && !hitBull && dartResults.length === 3;

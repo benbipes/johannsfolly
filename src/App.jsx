@@ -9,7 +9,7 @@ import ScoringScreen from './components/ScoringScreen.jsx';
 import PlayoffScreen from './components/PlayoffScreen.jsx';
 import LeaderboardView from './components/Leaderboard.jsx';
 
-import { createGame } from './gameLogic.js';
+import { BULL_INDEX, createGame } from './gameLogic.js';
 import { useGameSync } from './useGameSync.js';
 import { getLoggedInUser, logout } from './auth.js';
 import { recordGame } from './leaderboard.js';
@@ -19,6 +19,10 @@ function generateRoomCode() {
   let code = '';
   for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
   return code;
+}
+
+function choosePlayoffNumber() {
+  return Math.floor(Math.random() * 20) + 1;
 }
 
 // Advance currentPlayerIndex to next player, wrapping around and bumping round.
@@ -41,6 +45,7 @@ export default function App() {
   const [playoffPlayers, setPlayoffPlayers] = useState([]);
   const [finalWinners, setFinalWinners] = useState([]);
   const [playoffScores, setPlayoffScores] = useState({});
+  const [playoffNumber, setPlayoffNumber] = useState(null);
 
   // Per-player stats accumulated during the current game for leaderboard recording
   // { [playerName]: { marks: number, darts: number } }
@@ -99,6 +104,7 @@ export default function App() {
         marks: (stats[playerName]?.marks ?? 0) + marksThisTurn,
         darts: (stats[playerName]?.darts ?? 0) + dartsThisTurn,
       };
+      const reachedBullThisTurn = prevMarks < BULL_INDEX && newTargetIndex === BULL_INDEX;
 
       // Update current player's progress
       const players = prev.players.map((p, i) => {
@@ -116,10 +122,38 @@ export default function App() {
       const newRound = nextIdx === 0 ? prev.round + 1 : prev.round;
       const advanced = { ...prev, players, currentPlayerIndex: nextIdx, round: newRound };
 
+      const bullPlayers = players
+        .map((p, i) => ({ p, i }))
+        .filter(({ p }) => p.targetIndex === BULL_INDEX)
+        .map(({ i }) => i);
+
+      if ((reachedBullThisTurn || hitBull) && bullPlayers.length > 1) {
+        setTimeout(() => {
+          setPlayoffPlayers(bullPlayers);
+          setPlayoffScores({});
+          setPlayoffNumber(choosePlayoffNumber());
+          setView('playoff');
+        }, 0);
+      } else if (hitBull) {
+        const marksMap = {};
+        const dartsMap = {};
+        players.forEach(p => {
+          marksMap[p.name] = stats[p.name]?.marks ?? p.targetIndex;
+          dartsMap[p.name] = stats[p.name]?.darts ?? 0;
+        });
+        setTimeout(() => {
+          recordGame(players, [prev.currentPlayerIndex], prev.round, marksMap, dartsMap);
+          setFinalWinners([prev.currentPlayerIndex]);
+          setPlayoffScores({});
+          setPlayoffNumber(null);
+          setView('winner');
+        }, 0);
+      }
+
       // Did the round just complete?
       const roundJustEnded = nextIdx === 0;
 
-      if (roundJustEnded) {
+      if (!hitBull && bullPlayers.length < 2 && roundJustEnded) {
         // Collect all players who hit bull this round
         const hitters = players
           .map((p, i) => ({ p, i }))
@@ -137,11 +171,14 @@ export default function App() {
           setTimeout(() => {
             recordGame(players, hitters, prev.round, marksMap, dartsMap);
             setFinalWinners(hitters);
+            setPlayoffNumber(null);
             setView('winner');
           }, 0);
         } else if (hitters.length > 1) {
           setTimeout(() => {
             setPlayoffPlayers(hitters);
+            setPlayoffScores({});
+            setPlayoffNumber(choosePlayoffNumber());
             setView('playoff');
           }, 0);
         }
@@ -178,6 +215,7 @@ export default function App() {
     setGame(null);
     setFinalWinners([]);
     setPlayoffScores({});
+    setPlayoffNumber(null);
     setPlayoffPlayers([]);
     setRoomCode(null);
     setIsHost(false);
@@ -222,7 +260,7 @@ export default function App() {
           <p>
             {isPlayoff
               ? `Playoff winner with ${playoffScores[finalWinners[0]]} hit${playoffScores[finalWinners[0]] !== 1 ? 's' : ''}!`
-              : 'First to reach the Bullseye!'}
+              : 'Closed on the Bullseye!'}
           </p>
         </div>
 
@@ -258,6 +296,7 @@ export default function App() {
       <PlayoffScreen
         game={game}
         playoffPlayers={playoffPlayers}
+        playoffNumber={playoffNumber}
         onPlayoffComplete={handlePlayoffComplete}
       />
     );

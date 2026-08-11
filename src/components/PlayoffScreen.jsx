@@ -3,33 +3,16 @@ import { useState } from 'react';
 /**
  * Playoff screen.
  *
- * Phase 1: pick_number
- *   A non-winning player throws left-handed. We ask which number they hit.
- *
- * Phase 2: throwing
- *   Each playoff player throws at the playoff number.
+ * Each playoff player throws at the chosen playoff number.
  *   Score is number of hits (single=1, double=2, triple=3).
  *   Perfect throw (all 3 hit) gives 3 bonus darts.
  */
 
-const DART_NUMBERS = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,'Bull'];
-
-export default function PlayoffScreen({ game, playoffPlayers, onPlayoffComplete }) {
-  const [phase, setPhase] = useState('pick_number'); // 'pick_number' | 'throwing' | 'done'
-  const [playoffNumber, setPlayoffNumber] = useState(null);
+export default function PlayoffScreen({ game, playoffPlayers, playoffNumber, onPlayoffComplete }) {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [scores, setScores] = useState({}); // playerIndex -> total hits
   const [darts, setDarts] = useState([]);
   const [extraSets, setExtraSets] = useState(0);
-
-  // Find a non-winner for left-hand throw
-  const throwerForPick = game.players.find((p, i) => !playoffPlayers.includes(i));
-  const throwerName = throwerForPick ? throwerForPick.name : 'Someone';
-
-  function confirmNumber() {
-    if (!playoffNumber) return;
-    setPhase('throwing');
-  }
 
   function handleDart(type) {
     if (darts.length >= 3) return;
@@ -81,46 +64,11 @@ export default function PlayoffScreen({ game, playoffPlayers, onPlayoffComplete 
     setDarts(prev => prev.slice(0, -1));
   }
 
-  if (phase === 'pick_number') {
-    return (
-      <div className="screen">
-        <div className="card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '2rem' }}>🤝 Tie!</div>
-          <h2 style={{ marginTop: '0.5rem' }}>Playoff Time</h2>
-          <p style={{ color: 'var(--muted)', marginTop: '0.4rem', fontSize: '0.9rem' }}>
-            <strong style={{ color: 'var(--text)' }}>{throwerName}</strong> throws left-handed.
-            <br />Which number did they hit?
-          </p>
-        </div>
-
-        <div className="card">
-          <p className="section-title" style={{ marginBottom: '0.75rem' }}>Select Playoff Number</p>
-          <div className="playoff-number-pick">
-            {DART_NUMBERS.map(n => (
-              <button
-                key={n}
-                className={`num-btn${playoffNumber === n ? ' selected' : ''}`}
-                onClick={() => setPlayoffNumber(n)}
-              >
-                {n === 'Bull' ? '🎯' : n}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="spacer" />
-        <button className="btn-primary" disabled={!playoffNumber} onClick={confirmNumber}>
-          Start Playoff → {playoffNumber ?? '?'}
-        </button>
-      </div>
-    );
-  }
-
-  // throwing phase
   const playerIdx = playoffPlayers[currentIdx];
   const playerName = game.players[playerIdx].name;
   const setDone = darts.length === 3;
   const currentScore = scores[playerIdx] || 0;
+  const playoffNames = playoffPlayers.map(pi => game.players[pi].name).join(', ');
 
   const SLOT_ICONS = { miss: '✗', single: '🎯', double: '🎯🎯', triple: '🎯🎯🎯' };
   const DART_OPTIONS = [
@@ -132,9 +80,17 @@ export default function PlayoffScreen({ game, playoffPlayers, onPlayoffComplete 
 
   return (
     <div className="screen">
+      <div className="card" style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: '2rem' }}>🤝 Tie at Bull</div>
+        <h2 style={{ marginTop: '0.5rem' }}>Throw-off on {playoffNumber}</h2>
+        <p style={{ color: 'var(--muted)', marginTop: '0.4rem', fontSize: '0.9rem' }}>
+          {playoffNames}
+        </p>
+      </div>
+
       <div className="card scoring-header">
         <div className="target-label">PLAYOFF — throw at</div>
-        <div className="target-number">{playoffNumber === 'Bull' ? '🎯 Bull' : playoffNumber}</div>
+        <div className="target-number">{playoffNumber}</div>
         <div className="round-label">
           <strong>{playerName}</strong> · score so far: <strong style={{ color: 'var(--accent)' }}>{currentScore}</strong>
           {extraSets > 0 && (
