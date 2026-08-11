@@ -1,4 +1,10 @@
 import { useEffect, useRef, useCallback } from 'react';
+import {
+  getNetworkOpenRooms,
+  publishNetworkRoom,
+  publishNetworkRoomEvent,
+  subscribeNetworkRoom,
+} from './networkSync.js';
 
 const LOBBY_CHANNEL = 'jf:lobby';
 const ROOM_PREFIX = 'room:';
@@ -11,12 +17,13 @@ function isFresh(updatedAt, ttlMs) {
 }
 
 /**
- * Announce a room to other lobby tabs via BroadcastChannel and localStorage.
+ * Announce a room to other devices and lobby tabs.
  * @param {string} roomCode
  * @param {'open'|'closed'} status
  */
 export function announceRoom(roomCode, status) {
   localStorage.setItem(`${ROOM_PREFIX}${roomCode}`, JSON.stringify({ code: roomCode, status, updatedAt: Date.now() }));
+  publishNetworkRoom(roomCode, status);
   try {
     const ch = new BroadcastChannel(LOBBY_CHANNEL);
     ch.postMessage({ type: 'room_update', roomCode, status });
@@ -25,7 +32,7 @@ export function announceRoom(roomCode, status) {
 }
 
 /**
- * Get all open rooms stored in localStorage.
+ * Get all open rooms discovered across local storage and network.
  * @returns {{ code: string }[]}
  */
 export function getOpenRooms() {
@@ -46,15 +53,23 @@ export function getOpenRooms() {
     }
   }
   staleKeys.forEach(key => localStorage.removeItem(key));
-  return rooms;
+
+  const netRooms = getNetworkOpenRooms();
+  const allMap = new Map();
+  rooms.forEach(r => allMap.set(r.code, r));
+  netRooms.forEach(r => allMap.set(r.code, r));
+
+  return Array.from(allMap.values());
 }
 
 export function setRoomPlayerPresence(roomCode, playerName) {
   localStorage.setItem(`${PLAYER_PREFIX}${roomCode}:${playerName}`, JSON.stringify({ playerName, updatedAt: Date.now() }));
+  publishNetworkRoomEvent(roomCode, { type: 'room_joined', playerName });
 }
 
 export function removeRoomPlayerPresence(roomCode, playerName) {
   localStorage.removeItem(`${PLAYER_PREFIX}${roomCode}:${playerName}`);
+  publishNetworkRoomEvent(roomCode, { type: 'room_left', playerName });
 }
 
 export function getActiveRoomPlayers(roomCode) {
@@ -84,6 +99,7 @@ export function getActiveRoomPlayers(roomCode) {
 
 export function clearRoom(roomCode) {
   localStorage.removeItem(`${ROOM_PREFIX}${roomCode}`);
+  publishNetworkRoom(roomCode, 'closed');
 }
 
 export function clearRoomPlayers(roomCode) {
@@ -97,12 +113,7 @@ export function clearRoomPlayers(roomCode) {
 }
 
 /**
- * Syncs game state across browser tabs/windows on the same origin using
- * BroadcastChannel + localStorage as a fallback.
- *
- * Any participating tab calls `broadcast(game)` to share updated state.
- * All *other* tabs receive state updates via `onGameUpdate`.
- * (BroadcastChannel does not deliver messages back to the sender.)
+ * Syncs game state across browser tabs and devices in real-time.
  *
  * @param {string|null} roomCode     - The current room code, or null if no room.
  * @param {function}    onGameUpdate - Called with (game) when remote state arrives.
@@ -115,6 +126,7 @@ export function useGameSync(roomCode, onGameUpdate) {
   useEffect(() => {
     if (!roomCode) return;
 
+    // 1. Local BroadcastChannel sync
     const channel = new BroadcastChannel(`jf:room:${roomCode}`);
     channelRef.current = channel;
 
@@ -124,7 +136,14 @@ export function useGameSync(roomCode, onGameUpdate) {
       }
     };
 
-    // Pick up any state set before this tab opened the channel
+    // 2. Cross-device Network MQTT sync
+    const unsubscribeNet = subscribeNetworkRoom(roomCode, (event) => {
+      if (event?.type === 'game_state' && event.game) {
+        onUpdateRef.current(event.game);
+      }
+    });
+
+    // Pick up any state set before this tab opened
     const stored = localStorage.getItem(`game:${roomCode}`);
     if (stored) {
       try { onUpdateRef.current(JSON.parse(stored)); } catch { /* ignore */ }
@@ -133,15 +152,17 @@ export function useGameSync(roomCode, onGameUpdate) {
     return () => {
       channel.close();
       channelRef.current = null;
+      unsubscribeNet();
     };
   }, [roomCode]);
 
   const broadcast = useCallback((game) => {
     if (!roomCode) return;
-    // Persist to localStorage so late-joining tabs can catch up
     localStorage.setItem(`game:${roomCode}`, JSON.stringify(game));
     channelRef.current?.postMessage({ type: 'game_state', game });
+    publishNetworkRoomEvent(roomCode, { type: 'game_state', game });
   }, [roomCode]);
 
   return { broadcast };
 }
+

@@ -7,6 +7,10 @@ import {
   removeRoomPlayerPresence,
   setRoomPlayerPresence,
 } from '../useGameSync.js';
+import {
+  publishNetworkRoomEvent,
+  subscribeNetworkRoom,
+} from '../networkSync.js';
 
 const MAX_PLAYERS = 10;
 
@@ -41,19 +45,19 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
     };
   }, [roomCode, isHost]);
 
-  // Joiner: register self in localStorage so host can discover them,
-  // and periodically re-announce via BroadcastChannel to handle the case
-  // where the host tab wasn't listening when we first joined.
+  // Joiner: register self in localStorage and network so host can discover them
   useEffect(() => {
     if (isHost || !myPlayerName) return;
     const channel = new BroadcastChannel(`jf:room:${roomCode}`);
     const announce = () => {
       setRoomPlayerPresence(roomCode, myPlayerName);
       channel.postMessage({ type: 'room_joined', playerName: myPlayerName });
+      publishNetworkRoomEvent(roomCode, { type: 'room_joined', playerName: myPlayerName });
     };
     const leaveRoom = () => {
       removeRoomPlayerPresence(roomCode, myPlayerName);
       channel.postMessage({ type: 'room_left', playerName: myPlayerName });
+      publishNetworkRoomEvent(roomCode, { type: 'room_left', playerName: myPlayerName });
     };
     announce();
     const id = setInterval(announce, 2000);
@@ -68,10 +72,7 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
     };
   }, [isHost, roomCode, myPlayerName]);
 
-  // Host: listen for joined players immediately and fall back to localStorage
-  // scanning so late arrivals or refreshed tabs are still discovered.
-  // After each sync, broadcast the updated player list so all joiner tabs
-  // can display who is in the room.
+  // Host: listen for joined players across local BroadcastChannel and cross-device network
   useEffect(() => {
     if (!isHost) return;
     const channel = new BroadcastChannel(`jf:room:${roomCode}`);
@@ -99,6 +100,7 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
         const next = [hostName, ...nextJoined];
         localStorage.setItem(`room-players-list:${roomCode}`, JSON.stringify(next));
         channel.postMessage({ type: 'player_list', players: next });
+        publishNetworkRoomEvent(roomCode, { type: 'player_list', players: next });
         return next;
       });
     }
@@ -114,6 +116,16 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
         syncJoiners();
       }
     };
+
+    // Cross-device network listener for Host
+    const unsubscribeNet = subscribeNetworkRoom(roomCode, (event) => {
+      if (event?.type === 'room_joined' && event.playerName) {
+        syncJoiners(event.playerName);
+      } else if (event?.type === 'room_left') {
+        syncJoiners();
+      }
+    });
+
     syncJoiners();
     window.addEventListener('storage', handleStorage);
     const id = setInterval(() => syncJoiners(), 2000);
@@ -121,10 +133,11 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
       channel.close();
       window.removeEventListener('storage', handleStorage);
       clearInterval(id);
+      unsubscribeNet();
     };
   }, [isHost, roomCode, myPlayerName]);
 
-  // Joiner: listen for game start and player list updates via BroadcastChannel
+  // Joiner: listen for game start and player list updates across local and cross-device network
   useEffect(() => {
     if (isHost) return;
     const readStoredList = () => {
@@ -137,6 +150,7 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
       } catch { /* ignore */ }
     };
     readStoredList();
+
     const channel = new BroadcastChannel(`jf:room:${roomCode}`);
     channelRef.current = channel;
     channel.onmessage = (event) => {
@@ -146,6 +160,16 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
         setAllPlayers(event.data.players.filter(Boolean));
       }
     };
+
+    // Cross-device network listener for Joiner
+    const unsubscribeNet = subscribeNetworkRoom(roomCode, (event) => {
+      if (event?.type === 'game_state') {
+        setWaiting(false);
+      } else if (event?.type === 'player_list' && Array.isArray(event.players)) {
+        setAllPlayers(event.players.filter(Boolean));
+      }
+    });
+
     function handleStorage(event) {
       if (!event.key || event.key === `room-players-list:${roomCode}`) {
         readStoredList();
@@ -157,6 +181,7 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
       channel.close();
       window.removeEventListener('storage', handleStorage);
       clearInterval(id);
+      unsubscribeNet();
     };
   }, [isHost, roomCode]);
 
@@ -168,6 +193,7 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
         const channel = new BroadcastChannel(`jf:room:${roomCode}`);
         channel.postMessage({ type: 'player_list', players: next });
         channel.close();
+        publishNetworkRoomEvent(roomCode, { type: 'player_list', players: next });
       } catch { /* ignore */ }
       return next;
     });

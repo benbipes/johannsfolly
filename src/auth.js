@@ -19,6 +19,8 @@ function isFresh(updatedAt, ttlMs) {
   return Number.isFinite(updatedAt) && Date.now() - updatedAt <= ttlMs;
 }
 
+import { getNetworkLoggedUsers, publishNetworkPresence } from './networkSync.js';
+
 export function broadcastLobbyUpdate() {
   try {
     const ch = new BroadcastChannel('jf:lobby');
@@ -34,6 +36,7 @@ export function refreshLoggedUserPresence(username) {
     username: name,
     updatedAt: Date.now(),
   }));
+  publishNetworkPresence(name);
   broadcastLobbyUpdate();
 }
 
@@ -64,7 +67,10 @@ export function getLoggedUsers() {
     }
   }
   staleKeys.forEach(key => localStorage.removeItem(key));
-  return [...new Set(users)].sort((a, b) => a.localeCompare(b));
+
+  const netUsers = getNetworkLoggedUsers();
+  const allUsers = [...new Set([...users, ...netUsers])];
+  return allUsers.sort((a, b) => a.localeCompare(b));
 }
 
 /**
