@@ -2,6 +2,15 @@ const ACCOUNTS_KEY = 'jf:accounts';
 const SESSION_KEY = 'jf:session';
 const PRESENCE_PREFIX = 'jf:logged-user:';
 const PRESENCE_TTL_MS = 30000;
+const LOBBY_CHANNEL = 'jf:lobby';
+
+function postPresenceUpdate() {
+  try {
+    const ch = new BroadcastChannel(LOBBY_CHANNEL);
+    ch.postMessage({ type: 'presence_update' });
+    ch.close();
+  } catch { /* ignore */ }
+}
 
 function loadAccounts() {
   try {
@@ -26,12 +35,14 @@ export function refreshLoggedUserPresence(username) {
     username: name,
     updatedAt: Date.now(),
   }));
+  postPresenceUpdate();
 }
 
 function clearLoggedUserPresence(username) {
   const name = username?.trim();
   if (!name) return;
   localStorage.removeItem(`${PRESENCE_PREFIX}${name.toLowerCase()}`);
+  postPresenceUpdate();
 }
 
 export function getLoggedUsers() {
@@ -108,4 +119,9 @@ export function getLoggedInUser() {
 export function logout() {
   clearLoggedUserPresence(getLoggedInUser());
   localStorage.removeItem(SESSION_KEY);
+}
+
+/** Clears the current user's presence; call on beforeunload/pagehide. */
+export function clearPresenceOnUnload() {
+  clearLoggedUserPresence(getLoggedInUser());
 }

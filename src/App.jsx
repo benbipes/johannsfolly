@@ -11,7 +11,7 @@ import LeaderboardView from './components/Leaderboard.jsx';
 
 import { BULL_INDEX, createGame } from './gameLogic.js';
 import { useGameSync } from './useGameSync.js';
-import { getLoggedInUser, logout, refreshLoggedUserPresence } from './auth.js';
+import { getLoggedInUser, logout, refreshLoggedUserPresence, clearPresenceOnUnload } from './auth.js';
 import { recordGame } from './leaderboard.js';
 
 function generateRoomCode() {
@@ -53,7 +53,14 @@ export default function App() {
     const heartbeat = () => refreshLoggedUserPresence(loggedInUser);
     heartbeat();
     const id = setInterval(heartbeat, 10000);
-    return () => clearInterval(id);
+    const handleUnload = () => clearPresenceOnUnload();
+    window.addEventListener('beforeunload', handleUnload);
+    window.addEventListener('pagehide', handleUnload);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener('beforeunload', handleUnload);
+      window.removeEventListener('pagehide', handleUnload);
+    };
   }, [loggedInUser]);
 
   // Per-player stats accumulated during the current game for leaderboard recording
