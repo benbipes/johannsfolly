@@ -15,23 +15,9 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
   const [copied, setCopied] = useState(false);
   // Joiner: track whether the host has started (waiting state)
   const [waiting, setWaiting] = useState(!isHost);
+  // Joiner: list of all players in the room (received from host)
+  const [allPlayers, setAllPlayers] = useState(myPlayerName ? [myPlayerName] : []);
   const channelRef = useRef(null);
-
-  function syncJoinedPlayers(joinedNames) {
-    setNames(prev => {
-      const hostName = prev[0] ?? '';
-      const existing = new Set([hostName.trim().toLowerCase()]);
-      const nextJoined = [];
-      for (const name of joinedNames) {
-        const normalized = name.trim().toLowerCase();
-        if (!normalized || existing.has(normalized)) continue;
-        existing.add(normalized);
-        nextJoined.push(name);
-        if (nextJoined.length >= MAX_PLAYERS - 1) break;
-      }
-      return [hostName, ...nextJoined];
-    });
-  }
 
   // Host: announce room creation and keep it open; close on unmount
   useEffect(() => {
@@ -41,6 +27,7 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
       announceRoom(roomCode, 'closed');
       clearRoom(roomCode);
       clearRoomPlayers(roomCode);
+      localStorage.removeItem(`room-players-list:${roomCode}`);
     };
     syncRoom();
     const id = setInterval(syncRoom, 5000);
@@ -83,11 +70,32 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
 
   // Host: listen for joined players immediately and fall back to localStorage
   // scanning so late arrivals or refreshed tabs are still discovered.
+  // After each sync, broadcast the updated player list so all joiner tabs
+  // can display who is in the room.
   useEffect(() => {
     if (!isHost) return;
     const channel = new BroadcastChannel(`jf:room:${roomCode}`);
     function syncJoiners() {
-      syncJoinedPlayers(getActiveRoomPlayers(roomCode));
+      const joined = getActiveRoomPlayers(roomCode);
+      setNames(prev => {
+        const hostName = prev[0] ?? '';
+        const existing = new Set([hostName.trim().toLowerCase()]);
+        const nextJoined = [];
+        for (const name of joined) {
+          const normalized = name.trim().toLowerCase();
+          if (!normalized || existing.has(normalized)) continue;
+          existing.add(normalized);
+          nextJoined.push(name);
+          if (nextJoined.length >= MAX_PLAYERS - 1) break;
+        }
+        const next = [hostName, ...nextJoined];
+        // Only broadcast/persist if the list actually changed
+        if (next.join(',') !== prev.join(',')) {
+          localStorage.setItem(`room-players-list:${roomCode}`, JSON.stringify(next));
+          channel.postMessage({ type: 'player_list', players: next });
+        }
+        return next;
+      });
     }
     function handleStorage(event) {
       if (!event.key || event.key.startsWith(`room-player:${roomCode}:`)) {
@@ -109,16 +117,21 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
     };
   }, [isHost, roomCode]);
 
-  // Joiner: listen for game start via BroadcastChannel
-  // (actual game state reception handled in App via useGameSync;
-  //  here we just wait and show status)
+  // Joiner: listen for game start and player list updates via BroadcastChannel
   useEffect(() => {
     if (isHost) return;
+    // Pick up any previously broadcast player list (for late arrivals)
+    try {
+      const stored = localStorage.getItem(`room-players-list:${roomCode}`);
+      if (stored) setAllPlayers(JSON.parse(stored).filter(Boolean));
+    } catch { /* ignore */ }
     const channel = new BroadcastChannel(`jf:room:${roomCode}`);
     channelRef.current = channel;
     channel.onmessage = (event) => {
       if (event.data?.type === 'game_state') {
         setWaiting(false); // App will handle the state update and view change
+      } else if (event.data?.type === 'player_list' && Array.isArray(event.data.players)) {
+        setAllPlayers(event.data.players.filter(Boolean));
       }
     };
     return () => channel.close();
@@ -135,6 +148,7 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
     announceRoom(roomCode, 'closed');
     clearRoom(roomCode);
     clearRoomPlayers(roomCode);
+    localStorage.removeItem(`room-players-list:${roomCode}`);
     onStart(filled);
   }
 
@@ -187,6 +201,32 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
               : 'Game is starting!'}
           </p>
         </div>
+
+        {allPlayers.length > 0 && (
+          <div className="card">
+            <p className="section-title" style={{ marginBottom: '0.75rem' }}>Players in Room</p>
+            <div className="player-list">
+              {allPlayers.map((name, i) => (
+                <div className="player-row" key={i} style={{ opacity: 0.9 }}>
+                  <span style={{
+                    flex: 1,
+                    padding: '0.4rem 0.5rem',
+                    color: name === myPlayerName ? 'var(--accent)' : 'inherit',
+                    fontWeight: name === myPlayerName ? 700 : 400,
+                  }}>
+                    {name}
+                  </span>
+                  {i === 0 && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--muted)', paddingLeft: '0.25rem', whiteSpace: 'nowrap' }}>host</span>
+                  )}
+                  {name === myPlayerName && i !== 0 && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--accent)', paddingLeft: '0.25rem', whiteSpace: 'nowrap' }}>you</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="spacer" />
 
