@@ -187,7 +187,7 @@ export default function ScoringScreen({ game, player, playerIndex, myPlayerName,
 
         {/* Mini scoreboard visible during hand-off */}
         <div className="card">
-          <p className="section-title" style={{ marginBottom: '0.5rem' }}>Current Standings</p>
+          <p className="section-title" style={{ marginBottom: '0.5rem' }}>Current Standings — Round {game.round}</p>
           <div className="mini-scoreboard">
             {sortedPlayers.map((p) => {
               const isCurrent = p.originalIndex === playerIndex;
@@ -252,7 +252,7 @@ export default function ScoringScreen({ game, player, playerIndex, myPlayerName,
 
       {/* Mini scoreboard — always visible */}
       <div className="card">
-        <p className="section-title" style={{ marginBottom: '0.5rem' }}>Current Standings</p>
+        <p className="section-title" style={{ marginBottom: '0.5rem' }}>Current Standings — Round {game.round}</p>
         <div className="mini-scoreboard">
           {sortedPlayers.map((p) => {
             const isCurrent = p.originalIndex === playerIndex;

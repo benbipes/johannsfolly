@@ -19,6 +19,7 @@ export default function PlayoffScreen({
   myPlayerName,
   onPlayoffComplete,
   onPlayoffUpdate,
+  onPlayoffTie,
 }) {
   const [localScores, setLocalScores] = useState({}); // playerIndex -> total hits
   const [darts, setDarts] = useState([]);
@@ -77,10 +78,16 @@ export default function PlayoffScreen({
   function advancePlayer(newScores) {
     const nextIdx = currentIdx + 1;
     if (nextIdx >= playoffPlayers.length) {
-      // All playoff players done — find winner(s) with highest score and exit to winner screen!
+      // All playoff players done for this playoff round — find max score
       const maxScore = Math.max(...Object.values(newScores));
       const winners = playoffPlayers.filter(pi => (newScores[pi] || 0) === maxScore);
-      onPlayoffComplete(winners, newScores);
+      if (winners.length > 1 && typeof onPlayoffTie === 'function') {
+        // TIE in playoff! Launch a 2nd playoff round with a new random number for tied players!
+        onPlayoffTie(winners);
+      } else {
+        // Sole winner! Complete playoff and exit to winner screen!
+        onPlayoffComplete(winners, newScores);
+      }
     } else {
       setDarts([]);
       setExtraSets(0);

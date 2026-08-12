@@ -131,8 +131,8 @@ export default function App() {
         perfects: (stats[playerName]?.perfects ?? 0) + (isPerfect ? 1 : 0),
       };
 
-      // Update current player's progress
-      const isFinished = hitBull || newTargetIndex === BULL_INDEX;
+      // Update current player's progress — finished ONLY when actually hitting Bullseye
+      const isFinished = hitBull;
       const players = prev.players.map((p, i) => {
         if (i !== prev.currentPlayerIndex) return p;
         return {
@@ -155,7 +155,7 @@ export default function App() {
       if (roundJustEnded) {
         const bullPlayers = players
           .map((p, i) => ({ p, i }))
-          .filter(({ p }) => p.targetIndex === BULL_INDEX || p.finished)
+          .filter(({ p }) => p.finished)
           .map(({ i }) => i);
 
         if (bullPlayers.length === 1) {
@@ -254,6 +254,28 @@ export default function App() {
         view: 'playoff',
         playoffScores: newScores ?? prev.playoffScores,
         playoffCurrentIdx: typeof newCurrentIdx === 'number' ? newCurrentIdx : (prev.playoffCurrentIdx ?? 0),
+      };
+      setTimeout(() => broadcast(updated), 0);
+      return updated;
+    });
+  }, [broadcast]);
+
+  const handlePlayoffTie = useCallback((tiedPlayers) => {
+    const newNum = choosePlayoffNumber();
+    setPlayoffPlayers(tiedPlayers);
+    setPlayoffScores({});
+    setPlayoffNumber(newNum);
+    setPlayoffCurrentIdx(0);
+    setView('playoff');
+    setGame(prev => {
+      if (!prev) return prev;
+      const updated = {
+        ...prev,
+        view: 'playoff',
+        playoffPlayers: tiedPlayers,
+        playoffNumber: newNum,
+        playoffScores: {},
+        playoffCurrentIdx: 0,
       };
       setTimeout(() => broadcast(updated), 0);
       return updated;
@@ -383,6 +405,7 @@ export default function App() {
         myPlayerName={myPlayerName}
         onPlayoffComplete={handlePlayoffComplete}
         onPlayoffUpdate={handlePlayoffUpdate}
+        onPlayoffTie={handlePlayoffTie}
       />
     );
   }
@@ -411,6 +434,7 @@ export default function App() {
           myPlayerName={myPlayerName}
           onPlayoffComplete={handlePlayoffComplete}
           onPlayoffUpdate={handlePlayoffUpdate}
+          onPlayoffTie={handlePlayoffTie}
         />
       );
     }

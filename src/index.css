@@ -160,6 +160,17 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   transition: width 0.3s;
 }
 
+.round-badge {
+  background: var(--accent);
+  color: #000;
+  font-weight: 800;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 20px;
+  letter-spacing: 0.5px;
+  display: inline-block;
+}
+
 /* ── Scoring Screen ────────────────────────────────────────── */
 .scoring-header {
   text-align: center;
