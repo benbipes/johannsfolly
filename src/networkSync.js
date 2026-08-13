@@ -76,12 +76,19 @@ export function initNetworkSync() {
     }
   }
 
+  let reconnectTimer = null;
+
   function tryFallback() {
+    if (reconnectTimer) return;
     if (client) {
       try { client.end(true); } catch { /* ignore */ }
+      client = null;
     }
-    currentBrokerIndex = (currentBrokerIndex + 1) % BROKERS.length;
-    connect(BROKERS[currentBrokerIndex]);
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      currentBrokerIndex = (currentBrokerIndex + 1) % BROKERS.length;
+      connect(BROKERS[currentBrokerIndex]);
+    }, 5000);
   }
 
   connect(BROKERS[currentBrokerIndex]);
