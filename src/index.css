@@ -186,6 +186,33 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   display: inline-block;
 }
 
+.player-tabs {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+}
+.player-tab {
+  flex: 1;
+  padding: 0.5rem 0.68rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 8px;
+  white-space: nowrap;
+}
+.player-tab.active {
+  background: var(--surface);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.player-tab.submitted {
+  border-color: var(--accent2);
+  color: var(--accent2);
+}
+
 /* ── Scoring Screen ────────────────────────────────────────── */
 .scoring-header {
   text-align: center;
