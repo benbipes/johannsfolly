@@ -120,6 +120,7 @@ export function clearRoomPlayers(roomCode) {
  */
 export function useGameSync(roomCode, onGameUpdate) {
   const channelRef = useRef(null);
+  const mySenderIdRef = useRef(Math.random().toString(36).slice(2));
   const onUpdateRef = useRef(onGameUpdate);
   onUpdateRef.current = onGameUpdate;
 
@@ -131,14 +132,14 @@ export function useGameSync(roomCode, onGameUpdate) {
     channelRef.current = channel;
 
     channel.onmessage = (event) => {
-      if (event.data?.type === 'game_state') {
+      if (event.data?.type === 'game_state' && event.data.senderId !== mySenderIdRef.current) {
         onUpdateRef.current(event.data.game);
       }
     };
 
     // 2. Cross-device Network MQTT sync
     const unsubscribeNet = subscribeNetworkRoom(roomCode, (event) => {
-      if (event?.type === 'game_state' && event.game) {
+      if (event?.type === 'game_state' && event.game && event.senderId !== mySenderIdRef.current) {
         onUpdateRef.current(event.game);
       }
     });
@@ -159,8 +160,9 @@ export function useGameSync(roomCode, onGameUpdate) {
   const broadcast = useCallback((game) => {
     if (!roomCode) return;
     localStorage.setItem(`game:${roomCode}`, JSON.stringify(game));
-    channelRef.current?.postMessage({ type: 'game_state', game });
-    publishNetworkRoomEvent(roomCode, { type: 'game_state', game });
+    const payload = { type: 'game_state', game, senderId: mySenderIdRef.current };
+    channelRef.current?.postMessage(payload);
+    publishNetworkRoomEvent(roomCode, payload);
   }, [roomCode]);
 
   return { broadcast };
