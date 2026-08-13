@@ -385,9 +385,10 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
         </div>
       </div>
 
-      <div className="spacer" />
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+        <p style={{ color: 'var(--accent)', fontSize: '1.05rem', fontWeight: 700, textAlign: 'center', margin: '0.25rem 0' }}>
+          Wait until all users have entered the room to click start.
+        </p>
         <button className="btn-primary" disabled={!canStart} onClick={handleStart}>
           Start Game
         </button>

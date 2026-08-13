@@ -11,7 +11,7 @@
   --danger: #ef4444;     /* red — miss */
   --text: #f1f5f9;
   --muted: #94a3b8;
-  --radius: 12px;
+  --radius: 14px;
 }
 
 html, body, #root {
@@ -19,6 +19,7 @@ html, body, #root {
   background: var(--bg);
   color: var(--text);
   font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 17px;
 }
 
 /* ── Layout ────────────────────────────────────────────────── */
@@ -26,23 +27,23 @@ html, body, #root {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  padding: 1rem;
-  gap: 1rem;
-  max-width: 480px;
+  padding: 1.15rem;
+  gap: 1.15rem;
+  max-width: 540px;
   margin: 0 auto;
 }
 
 /* ── Typography ────────────────────────────────────────────── */
-h1 { font-size: 1.6rem; font-weight: 800; color: var(--accent); letter-spacing: -0.5px; }
-h2 { font-size: 1.25rem; font-weight: 700; }
-h3 { font-size: 1rem; font-weight: 600; }
+h1 { font-size: 2rem; font-weight: 800; color: var(--accent); letter-spacing: -0.5px; }
+h2 { font-size: 1.5rem; font-weight: 700; }
+h3 { font-size: 1.2rem; font-weight: 600; }
 
 /* ── Cards ─────────────────────────────────────────────────── */
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1rem;
+  padding: 1.15rem;
 }
 
 /* ── Buttons ───────────────────────────────────────────────── */
@@ -50,9 +51,10 @@ button {
   font: inherit;
   cursor: pointer;
   border: none;
-  border-radius: 8px;
-  padding: 0.65rem 1rem;
-  font-weight: 600;
+  border-radius: 10px;
+  padding: 0.75rem 1.15rem;
+  font-weight: 700;
+  font-size: 1.1rem;
   transition: opacity 0.15s, transform 0.1s;
 }
 button:active { transform: scale(0.97); }
@@ -62,44 +64,45 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   background: var(--accent);
   color: #000;
   width: 100%;
-  font-size: 1.05rem;
-  padding: 0.85rem;
+  font-size: 1.25rem;
+  padding: 0.95rem;
 }
 .btn-secondary {
   background: var(--surface2);
   color: var(--text);
   border: 1px solid var(--border);
+  font-size: 1.1rem;
 }
-.btn-danger { background: var(--danger); color: #000; }
-.btn-success { background: var(--accent2); color: #000; }
+.btn-danger { background: var(--danger); color: #000; font-size: 1.1rem; }
+.btn-success { background: var(--accent2); color: #000; font-size: 1.1rem; }
 
 /* ── Setup Screen ──────────────────────────────────────────── */
 .setup-header { text-align: center; padding: 0.5rem 0; }
-.setup-header p { color: var(--muted); margin-top: 0.25rem; font-size: 0.9rem; }
-.app-logo { max-width: 280px; width: 100%; height: auto; }
+.setup-header p { color: var(--muted); margin-top: 0.35rem; font-size: 1.1rem; }
+.app-logo { max-width: 320px; width: 100%; height: auto; }
 
-.player-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.player-list { display: flex; flex-direction: column; gap: 0.6rem; }
 .player-row {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.6rem;
   align-items: center;
 }
 .player-row input {
   flex: 1;
   background: var(--surface2);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  padding: 0.75rem 0.9rem;
   color: var(--text);
   font: inherit;
-  font-size: 1rem;
+  font-size: 1.15rem;
 }
 .player-row input:focus { outline: 2px solid var(--accent); }
 .player-row input::placeholder { color: var(--muted); }
 .remove-btn {
   background: transparent;
   color: var(--danger);
-  font-size: 1.3rem;
+  font-size: 1.5rem;
   padding: 0.3rem 0.5rem;
   line-height: 1;
 }
@@ -109,24 +112,25 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   color: var(--accent);
   border: 1px dashed var(--accent);
   width: 100%;
-  padding: 0.65rem;
+  padding: 0.75rem;
+  font-size: 1.1rem;
 }
 
 /* ── Scoreboard ────────────────────────────────────────────── */
 .scoreboard-grid {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.5rem;
 }
 .score-row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.6rem 0.75rem;
-  border-radius: 8px;
+  gap: 0.85rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 10px;
   background: var(--surface2);
   border: 1px solid var(--border);
-  font-size: 0.95rem;
+  font-size: 1.15rem;
 }
 .score-row.current-player {
   border-color: var(--accent);
@@ -139,38 +143,38 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .score-row.is-perfect, .mini-score-row.is-perfect {
   border-color: var(--accent2);
   background: linear-gradient(135deg, rgba(192, 132, 252, 0.2), rgba(30, 21, 58, 0.9));
-  box-shadow: 0 0 10px rgba(192, 132, 252, 0.35);
+  box-shadow: 0 0 12px rgba(192, 132, 252, 0.35);
 }
 .perfect-badge {
-  font-size: 0.72rem;
+  font-size: 0.85rem;
   background: var(--accent2);
   color: #000;
-  border-radius: 4px;
-  padding: 0.1rem 0.4rem;
+  border-radius: 5px;
+  padding: 0.15rem 0.5rem;
   font-weight: 800;
-  margin-left: 0.25rem;
-  box-shadow: 0 0 6px rgba(192, 132, 252, 0.5);
+  margin-left: 0.35rem;
+  box-shadow: 0 0 8px rgba(192, 132, 252, 0.5);
 }
-.score-rank { width: 1.5rem; text-align: center; color: var(--muted); font-weight: 700; }
-.score-name { flex: 1; font-weight: 600; }
+.score-rank { width: 1.75rem; text-align: center; color: var(--muted); font-weight: 700; font-size: 1.15rem; }
+.score-name { flex: 1; font-weight: 700; font-size: 1.15rem; }
 .score-target {
-  font-size: 1.1rem;
+  font-size: 1.35rem;
   font-weight: 800;
   color: var(--accent);
-  min-width: 3.5rem;
+  min-width: 4rem;
   text-align: right;
 }
 .score-target.at-bull { color: var(--accent2); }
 .progress-bar-wrap {
   width: 100%;
-  height: 4px;
+  height: 6px;
   background: var(--border);
-  border-radius: 2px;
-  margin-top: 0.3rem;
+  border-radius: 3px;
+  margin-top: 0.35rem;
 }
 .progress-bar-fill {
   height: 100%;
-  border-radius: 2px;
+  border-radius: 3px;
   background: var(--accent);
   transition: width 0.3s;
 }
@@ -179,8 +183,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   background: var(--accent);
   color: #000;
   font-weight: 800;
-  font-size: 0.85rem;
-  padding: 0.35rem 0.85rem;
+  font-size: 1rem;
+  padding: 0.45rem 1rem;
   border-radius: 20px;
   letter-spacing: 0.5px;
   display: inline-block;
@@ -188,19 +192,19 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .player-tabs {
   display: flex;
-  gap: 0.4rem;
+  gap: 0.5rem;
   overflow-x: auto;
-  padding-bottom: 0.2rem;
+  padding-bottom: 0.25rem;
 }
 .player-tab {
   flex: 1;
-  padding: 0.5rem 0.68rem;
-  font-size: 0.85rem;
+  padding: 0.65rem 0.8rem;
+  font-size: 1.05rem;
   font-weight: 700;
   background: var(--surface2);
   border: 1px solid var(--border);
   color: var(--muted);
-  border-radius: 8px;
+  border-radius: 10px;
   white-space: nowrap;
 }
 .player-tab.active {
@@ -217,31 +221,31 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .scoring-header {
   text-align: center;
 }
-.scoring-header .target-label { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.2rem; }
+.scoring-header .target-label { color: var(--muted); font-size: 1.05rem; margin-bottom: 0.25rem; }
 .scoring-header .target-number {
-  font-size: 4rem;
+  font-size: 4.5rem;
   font-weight: 900;
   color: var(--accent);
   line-height: 1;
 }
-.scoring-header .round-label { color: var(--muted); font-size: 0.85rem; margin-top: 0.4rem; }
+.scoring-header .round-label { color: var(--muted); font-size: 1.05rem; margin-top: 0.45rem; }
 
 .dart-slots {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.6rem;
   justify-content: center;
-  margin: 0.5rem 0;
+  margin: 0.65rem 0;
 }
 .dart-slot {
   flex: 1;
-  max-width: 80px;
+  max-width: 90px;
   aspect-ratio: 1;
-  border-radius: 10px;
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
+  font-size: 0.9rem;
   font-weight: 700;
   border: 2px solid var(--border);
   background: var(--surface2);
@@ -251,24 +255,24 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .dart-slot.single { border-color: var(--accent); color: var(--accent); background: #1f1600; }
 .dart-slot.double { border-color: #60a5fa; color: #60a5fa; background: #0a1525; }
 .dart-slot.triple { border-color: var(--accent2); color: var(--accent2); background: #150a20; }
-.dart-slot .dart-icon { font-size: 1.5rem; }
+.dart-slot .dart-icon { font-size: 1.75rem; }
 
 .score-btns {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
+  gap: 0.6rem;
 }
 .score-btn {
-  padding: 1rem;
-  font-size: 1rem;
+  padding: 1.15rem 0.75rem;
+  font-size: 1.25rem;
   font-weight: 700;
-  border-radius: 10px;
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.2rem;
+  gap: 0.25rem;
 }
-.score-btn .score-btn-sub { font-size: 0.72rem; font-weight: 500; opacity: 0.7; }
+.score-btn .score-btn-sub { font-size: 0.9rem; font-weight: 600; opacity: 0.85; }
 .btn-miss { background: #2a1010; border: 2px solid var(--danger); color: var(--danger); }
 .btn-single { background: #2a1e00; border: 2px solid var(--accent); color: var(--accent); }
 .btn-double { background: #0a1a2f; border: 2px solid #60a5fa; color: #60a5fa; }
@@ -278,26 +282,26 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   background: linear-gradient(135deg, #1e153a, #150d2d);
   border: 2px solid var(--accent2);
   border-radius: var(--radius);
-  padding: 1rem;
+  padding: 1.15rem;
   text-align: center;
 }
-.perfect-banner h2 { color: var(--accent2); font-size: 1.5rem; }
-.perfect-banner p { color: var(--muted); margin-top: 0.3rem; font-size: 0.9rem; }
+.perfect-banner h2 { color: var(--accent2); font-size: 1.75rem; }
+.perfect-banner p { color: var(--muted); margin-top: 0.35rem; font-size: 1.1rem; }
 
 /* ── Playoff ────────────────────────────────────────────────── */
 .playoff-number-pick {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 0.4rem;
+  gap: 0.5rem;
 }
 .num-btn {
-  padding: 0.8rem 0.3rem;
-  font-size: 1rem;
+  padding: 0.9rem 0.4rem;
+  font-size: 1.15rem;
   font-weight: 700;
   background: var(--surface2);
   border: 1px solid var(--border);
   color: var(--text);
-  border-radius: 8px;
+  border-radius: 10px;
 }
 .num-btn.selected { background: var(--accent); color: #000; border-color: var(--accent); }
 
@@ -309,54 +313,54 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: 1rem;
+  gap: 1.15rem;
   padding: 2rem 1rem;
 }
-.handoff-screen .handoff-icon { font-size: 4rem; }
-.handoff-screen h2 { font-size: 1.5rem; }
-.handoff-screen p { color: var(--muted); font-size: 0.95rem; }
+.handoff-screen .handoff-icon { font-size: 4.5rem; }
+.handoff-screen h2 { font-size: 1.75rem; }
+.handoff-screen p { color: var(--muted); font-size: 1.15rem; }
 
 /* ── Mini scoreboard (inline on scoring screen) ─────────────── */
 .mini-scoreboard {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.4rem;
 }
 .mini-score-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.35rem 0.6rem;
-  border-radius: 6px;
+  gap: 0.6rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
   background: var(--surface2);
   border: 1px solid var(--border);
-  font-size: 0.85rem;
+  font-size: 1.05rem;
 }
 .mini-score-row.current-player {
   border-color: var(--accent);
   background: #2a2010;
 }
 .mini-score-row.finished { border-color: var(--accent2); background: #170d24; }
-.mini-score-name { flex: 1; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mini-score-target { font-weight: 800; color: var(--accent); font-size: 0.9rem; min-width: 2.5rem; text-align: right; }
+.mini-score-name { flex: 1; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 1.05rem; }
+.mini-score-target { font-weight: 800; color: var(--accent); font-size: 1.15rem; min-width: 3rem; text-align: right; }
 .mini-score-target.at-bull { color: var(--accent2); }
 
 /* ── Winner screen ──────────────────────────────────────────── */
 .winner-screen { text-align: center; padding: 2rem 1rem; }
-.winner-screen .trophy { font-size: 5rem; }
-.winner-screen h1 { font-size: 2rem; margin-top: 0.5rem; }
-.winner-screen p { color: var(--muted); margin-top: 0.5rem; }
+.winner-screen .trophy { font-size: 5.5rem; }
+.winner-screen h1 { font-size: 2.3rem; margin-top: 0.5rem; }
+.winner-screen p { color: var(--muted); margin-top: 0.5rem; font-size: 1.15rem; }
 
 /* ── Room Code ────────────────────────────────────────────── */
 .room-code-card { text-align: center; }
 .room-code-display {
-  font-size: 2.5rem;
+  font-size: 2.8rem;
   font-weight: 900;
-  letter-spacing: 0.3em;
+  letter-spacing: 0.35em;
   color: var(--accent);
   background: var(--surface2);
-  border-radius: 10px;
-  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  padding: 0.85rem 1.15rem;
   margin: 0.5rem 0;
   font-family: 'Courier New', monospace;
 }
@@ -364,40 +368,29 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 /* ── PIN Input ──────────────────────────────────────────────── */
 .pin-row {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.85rem;
   justify-content: center;
 }
 .pin-digit {
-  width: 3rem;
-  height: 3.5rem;
+  width: 3.5rem;
+  height: 4rem;
   text-align: center;
-  font-size: 1.5rem;
   font-weight: 700;
   background: var(--surface2);
   border: 2px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   color: var(--text);
   font: inherit;
-  font-size: 1.5rem;
+  font-size: 1.8rem;
 }
 .pin-digit:focus { outline: none; border-color: var(--accent); }
 
 /* ── Misc ───────────────────────────────────────────────────── */
-.round-badge {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 0.3rem 0.85rem;
-  font-size: 0.85rem;
-  color: var(--muted);
-  font-weight: 600;
-  text-align: center;
-}
 .section-title {
-  font-size: 0.75rem;
+  font-size: 0.95rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
-  font-weight: 700;
+  font-weight: 800;
 }
 .spacer { flex: 1; }
