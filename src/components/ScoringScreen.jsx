@@ -25,13 +25,24 @@ export default function ScoringScreen({
   onShowScoreboard,
   onQuit,
 }) {
-  // Determine which player on the roster corresponds to the current device / user
-  const activePlayerIndex = myPlayerName
+  // Check if current device is bound to a single user in multi-device mode
+  const matchedIdx = myPlayerName
     ? game.players.findIndex(p => p.name?.trim().toLowerCase() === myPlayerName.trim().toLowerCase())
-    : playerIndex;
-  
-  const currentPlayerIdx = activePlayerIndex >= 0 ? activePlayerIndex : playerIndex;
+    : -1;
+  const isBoundToUser = matchedIdx >= 0;
+
+  const currentPlayerIdx = isBoundToUser ? matchedIdx : playerIndex;
   const activePlayer = game.players[currentPlayerIdx] || player;
+
+  // In multi-device mode, skip hand-off gate.
+  // In single-device pass & play mode, show hand-off gate when switching players.
+  const [ready, setReady] = useState(isBoundToUser);
+
+  useEffect(() => {
+    if (!isBoundToUser) {
+      setReady(false);
+    }
+  }, [currentPlayerIdx, game.round, isBoundToUser]);
 
   // Has active player already scored for current round?
   const isRoundScored = (activePlayer.roundCompleted ?? 0) >= game.round;
@@ -113,7 +124,68 @@ export default function ScoringScreen({
     .map((p, i) => ({ ...p, originalIndex: i }))
     .sort((a, b) => b.targetIndex - a.targetIndex);
 
-  // ── LOCKED SCORING VIEW (Already scored this round) ─────────────
+  // ── HAND-OFF GATE (Single-device Pass & Play) ─────────────────────
+  if (!ready) {
+    return (
+      <div className="screen">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div className="round-badge">Round {game.round}</div>
+          <div className="spacer" />
+          <button
+            className="btn-danger"
+            style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
+            onClick={onQuit}
+          >
+            ✕ Quit
+          </button>
+        </div>
+
+        <div className="handoff-screen">
+          <div className="handoff-icon">📲</div>
+          <h2>Pass the device to</h2>
+          <h1 style={{ fontSize: '1.8rem' }}>{activePlayer.name}</h1>
+          <p>Hand this device to <strong style={{ color: 'var(--text)' }}>{activePlayer.name}</strong> so they can enter their own darts.</p>
+          <button
+            className="btn-primary"
+            style={{ marginTop: '0.5rem' }}
+            onClick={() => setReady(true)}
+          >
+            I'm {activePlayer.name} — I'm Ready 🎯
+          </button>
+        </div>
+
+        {/* Mini scoreboard visible during hand-off */}
+        <div className="card">
+          <p className="section-title" style={{ marginBottom: '0.5rem' }}>Current Standings — Round {game.round}</p>
+          <div className="mini-scoreboard">
+            {sortedPlayers.map((p) => {
+              const isCurrent = p.originalIndex === currentPlayerIdx;
+              const atBull = p.targetIndex === BULL_INDEX;
+              const target = TARGET_SEQUENCE[p.targetIndex];
+              const marks = p.marks ?? p.targetIndex ?? 0;
+              const mpr = (marks / roundsCount).toFixed(1);
+              const isPerfect = p.lastIsPerfect || p.perfectCount > 0;
+              return (
+                <div key={p.originalIndex} className={`mini-score-row${isCurrent ? ' current-player' : ''}${p.finished ? ' finished' : ''}${isPerfect ? ' is-perfect' : ''}`}>
+                  <span className="mini-score-name">{p.finished ? '🏆 ' : ''}{p.name}</span>
+                  <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: '3rem' }}>
+                    <span className={`mini-score-target${atBull ? ' at-bull' : ''}`}>
+                      {p.finished ? '🎯 Bull' : target}
+                    </span>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--muted)', fontWeight: 600 }}>
+                      {mpr} MPR
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── LOCKED SCORING VIEW (Multi-device already scored this round) ────
   if (isRoundScored) {
     return (
       <div className="screen">

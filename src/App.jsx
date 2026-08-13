@@ -151,10 +151,13 @@ export default function App() {
         };
       });
 
+      // Advance currentPlayerIndex to next player on roster
+      const nextPlayerIdx = (scoringPlayerIdx + 1) % players.length;
+
       // Check if ALL active players have completed the current round
       const roundJustEnded = players.every(p => p.finished || (p.roundCompleted ?? 0) >= prev.round);
       const newRound = roundJustEnded ? prev.round + 1 : prev.round;
-      let advanced = { ...prev, players, round: newRound };
+      let advanced = { ...prev, players, currentPlayerIndex: nextPlayerIdx, round: newRound };
 
       let nextView = 'scoring';
 
@@ -422,16 +425,16 @@ export default function App() {
     );
   }
 
-  // scoring view — all players score simultaneously for the current round
-  const defaultIdx = myPlayerName
+  // scoring view — select active player based on myPlayerName or currentPlayerIndex
+  const matchedIdx = myPlayerName
     ? game.players.findIndex(p => p.name?.trim().toLowerCase() === myPlayerName.trim().toLowerCase())
-    : 0;
-  const activeIdx = defaultIdx >= 0 ? defaultIdx : 0;
+    : -1;
+  const activeIdx = matchedIdx >= 0 ? matchedIdx : (game.currentPlayerIndex ?? 0);
   const activePlayer = game.players[activeIdx] || game.players[0];
 
   return (
     <ScoringScreen
-      key={`scoring-${game.round}`}
+      key={`scoring-${activeIdx}-${game.round}`}
       game={game}
       player={activePlayer}
       playerIndex={activeIdx}
