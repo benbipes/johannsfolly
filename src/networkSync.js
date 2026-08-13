@@ -91,19 +91,29 @@ export function initNetworkSync() {
     }, 5000);
   }
 
-  connect(BROKERS[currentBrokerIndex]);
+  try {
+    connect(BROKERS[currentBrokerIndex]);
+  } catch {
+    tryFallback();
+  }
 }
 
 if (typeof window !== 'undefined') {
-  initNetworkSync();
+  setTimeout(() => {
+    try {
+      initNetworkSync();
+    } catch { /* ignore */ }
+  }, 100);
 }
 
 /** Publish logged-in user presence across all devices */
 export function publishNetworkPresence(username) {
   const name = username?.trim();
   if (!name || !client?.connected) return;
-  const payload = JSON.stringify({ username: name, updatedAt: Date.now() });
-  client.publish(TOPIC_PRESENCE, payload, { qos: 0 });
+  try {
+    const payload = JSON.stringify({ username: name, updatedAt: Date.now() });
+    client.publish(TOPIC_PRESENCE, payload, { qos: 0 });
+  } catch { /* ignore */ }
 }
 
 /** Get list of active logged users discovered across all devices */
@@ -122,8 +132,10 @@ export function getNetworkLoggedUsers() {
 /** Publish room open/closed status across all devices */
 export function publishNetworkRoom(roomCode, status) {
   if (!roomCode || !client?.connected) return;
-  const payload = JSON.stringify({ code: roomCode, status, updatedAt: Date.now() });
-  client.publish(TOPIC_ROOMS, payload, { qos: 0 });
+  try {
+    const payload = JSON.stringify({ code: roomCode, status, updatedAt: Date.now() });
+    client.publish(TOPIC_ROOMS, payload, { qos: 0 });
+  } catch { /* ignore */ }
 }
 
 /** Get list of open rooms discovered across all devices */
@@ -160,6 +172,8 @@ export function subscribeNetworkRoom(roomCode, callback) {
 /** Publish a room event (joined, player_list, game_state) to all devices */
 export function publishNetworkRoomEvent(roomCode, eventObj) {
   if (!roomCode || !client?.connected) return;
-  const topic = `${TOPIC_ROOM_PREFIX}${roomCode}`;
-  client.publish(topic, JSON.stringify(eventObj), { qos: 0 });
+  try {
+    const topic = `${TOPIC_ROOM_PREFIX}${roomCode}`;
+    client.publish(topic, JSON.stringify(eventObj), { qos: 0 });
+  } catch { /* ignore */ }
 }
