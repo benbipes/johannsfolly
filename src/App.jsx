@@ -99,6 +99,65 @@ export default function App() {
       setTimeout(() => broadcast(updatedGame), 0);
     }
 
+    // Automatic Round Advance Evaluator:
+    // If all active players have completed the current round, advance round or trigger winner/playoff!
+    if (
+      updatedGame.view === 'scoring' &&
+      Array.isArray(updatedGame.players) &&
+      updatedGame.players.length > 0 &&
+      updatedGame.players.every(p => p.finished || (p.roundCompleted ?? 0) >= updatedGame.round)
+    ) {
+      const bullPlayers = updatedGame.players
+        .map((p, i) => ({ p, i }))
+        .filter(({ p }) => p.finished)
+        .map(({ i }) => i);
+
+      if (bullPlayers.length === 1) {
+        const winnerIdx = bullPlayers[0];
+        const stats = playerStatsRef.current;
+        const marksMap = {};
+        const dartsMap = {};
+        const perfectsMap = {};
+        updatedGame.players.forEach(p => {
+          marksMap[p.name] = stats[p.name]?.marks ?? p.targetIndex;
+          dartsMap[p.name] = stats[p.name]?.darts ?? 0;
+          perfectsMap[p.name] = stats[p.name]?.perfects ?? 0;
+        });
+        const fStats = { rounds: updatedGame.round, marksMap, dartsMap, perfectsMap };
+        setFinalWinners([winnerIdx]);
+        setFinalStats(fStats);
+        setView('winner');
+        updatedGame = {
+          ...updatedGame,
+          view: 'winner',
+          finalWinners: [winnerIdx],
+          finalStats: fStats,
+        };
+      } else if (bullPlayers.length > 1) {
+        const pNum = choosePlayoffNumber();
+        setPlayoffPlayers(bullPlayers);
+        setPlayoffScores({});
+        setPlayoffNumber(pNum);
+        setPlayoffCurrentIdx(0);
+        setView('playoff');
+        updatedGame = {
+          ...updatedGame,
+          view: 'playoff',
+          playoffPlayers: bullPlayers,
+          playoffNumber: pNum,
+          playoffScores: {},
+          playoffCurrentIdx: 0,
+        };
+      } else {
+        // No bull finishers — advance to next round!
+        updatedGame = {
+          ...updatedGame,
+          round: updatedGame.round + 1,
+        };
+      }
+      setTimeout(() => broadcast(updatedGame), 0);
+    }
+
     setGame(updatedGame);
     if (updatedGame?.view) {
       setView(updatedGame.view);
