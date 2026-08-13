@@ -68,12 +68,12 @@ export default function ScoringScreen({
   const currentTarget = TARGET_SEQUENCE[currentTargetIndex];
 
   const dartOptions = [
-    { key: 'miss', label: 'Miss', sub: String(currentTarget), cls: 'btn-miss' },
-    { key: 'single', label: 'Hit', sub: getTargetsForMarks(currentTargetIndex, 1), cls: 'btn-single' },
-    { key: 'double', label: 'Double', sub: getTargetsForMarks(currentTargetIndex, 2), cls: 'btn-double' },
+    { key: 'miss', label: 'Miss', cls: 'btn-miss' },
+    { key: 'single', label: 'Single', cls: 'btn-single' },
+    { key: 'double', label: 'Double', cls: 'btn-double' },
   ];
   if (currentTargetIndex !== BULL_INDEX) {
-    dartOptions.push({ key: 'triple', label: 'Triple', sub: getTargetsForMarks(currentTargetIndex, 3), cls: 'btn-triple' });
+    dartOptions.push({ key: 'triple', label: 'Triple', cls: 'btn-triple' });
   }
 
   function handleDart(type) {
@@ -220,7 +220,6 @@ export default function ScoringScreen({
           {/* Score buttons */}
           {!setDone && (
             <>
-              <p className="section-title" style={{ textAlign: 'center' }}>Dart {dartsInSet + 1} of 3</p>
               <div className="score-btns">
                 {dartOptions.map(opt => (
                   <button
@@ -229,7 +228,6 @@ export default function ScoringScreen({
                     onClick={() => handleDart(opt.key)}
                   >
                     {opt.label}
-                    <span className="score-btn-sub">{opt.sub}</span>
                   </button>
                 ))}
               </div>

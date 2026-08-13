@@ -107,10 +107,10 @@ export default function PlayoffScreen({
 
   const SLOT_ICONS = { miss: '✗', single: '🎯', double: '🎯🎯', triple: '🎯🎯🎯' };
   const DART_OPTIONS = [
-    { key: 'miss',   label: 'Miss',   sub: '0',   cls: 'btn-miss' },
-    { key: 'single', label: 'Hit',    sub: '+1',  cls: 'btn-single' },
-    { key: 'double', label: 'Double', sub: '+2',  cls: 'btn-double' },
-    { key: 'triple', label: 'Triple', sub: '+3',  cls: 'btn-triple' },
+    { key: 'miss',   label: 'Miss',   cls: 'btn-miss' },
+    { key: 'single', label: 'Single', cls: 'btn-single' },
+    { key: 'double', label: 'Double', cls: 'btn-double' },
+    { key: 'triple', label: 'Triple', cls: 'btn-triple' },
   ];
 
   // ── OBSERVER SCREEN (Non-Playoff Players) ─────────────────────
@@ -232,12 +232,10 @@ export default function PlayoffScreen({
 
           {!setDone && (
             <>
-              <p className="section-title" style={{ textAlign: 'center' }}>Dart {darts.length + 1} of 3</p>
               <div className="score-btns">
                 {DART_OPTIONS.map(opt => (
                   <button key={opt.key} className={`score-btn ${opt.cls}`} onClick={() => handleDart(opt.key)}>
                     {opt.label}
-                    <span className="score-btn-sub">{opt.sub}</span>
                   </button>
                 ))}
               </div>
