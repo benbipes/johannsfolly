@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TARGET_SEQUENCE, BULL_INDEX, processDarts } from '../gameLogic.js';
 
 const SLOT_ICONS = { miss: '✗', single: '🎯', double: '🎯🎯', triple: '🎯🎯🎯' };
@@ -16,21 +16,41 @@ function getTargetsForMarks(targetIndex, marks) {
   return targets.join(' → ');
 }
 
-export default function ScoringScreen({ game, player, playerIndex, myPlayerName, onTurnComplete, onShowScoreboard, onQuit }) {
-  // Multi-device mode: if we know who "owns" this device, handle hand-off differently
-  const isMyTurn = !myPlayerName || player.name === myPlayerName;
+export default function ScoringScreen({
+  game,
+  player,
+  playerIndex,
+  myPlayerName,
+  onTurnComplete,
+  onShowScoreboard,
+  onQuit,
+}) {
+  // Determine which player on the roster corresponds to the current device / user
+  const activePlayerIndex = myPlayerName
+    ? game.players.findIndex(p => p.name?.trim().toLowerCase() === myPlayerName.trim().toLowerCase())
+    : playerIndex;
+  
+  const currentPlayerIdx = activePlayerIndex >= 0 ? activePlayerIndex : playerIndex;
+  const activePlayer = game.players[currentPlayerIdx] || player;
 
-  // Hand-off gate: show "pass device to player" before revealing scoring UI
-  // In multi-device mode, skip the gate for the identified player; show "waiting" for others
-  const [ready, setReady] = useState(isMyTurn);
+  // Has active player already scored for current round?
+  const isRoundScored = (activePlayer.roundCompleted ?? 0) >= game.round;
 
   // darts: array of results for current "set" of 3
   const [darts, setDarts] = useState([]);
   const [turnDarts, setTurnDarts] = useState([]); // all darts in the full turn (across perfect sets)
   const [perfectSets, setPerfectSets] = useState(0);
 
-  // Simulated current target after previous perfect sets
-  const [simulatedTargetIndex, setSimulatedTargetIndex] = useState(player.targetIndex);
+  // Simulated current target after previous perfect sets in this turn
+  const [simulatedTargetIndex, setSimulatedTargetIndex] = useState(activePlayer.targetIndex);
+
+  // Reset local state when a new round starts
+  useEffect(() => {
+    setDarts([]);
+    setTurnDarts([]);
+    setPerfectSets(0);
+    setSimulatedTargetIndex(activePlayer.targetIndex);
+  }, [game.round, activePlayer.targetIndex]);
 
   const dartsInSet = darts.length;
   const setDone = dartsInSet === 3;
@@ -40,6 +60,7 @@ export default function ScoringScreen({ game, player, playerIndex, myPlayerName,
     darts,
   ).newTargetIndex;
   const currentTarget = TARGET_SEQUENCE[currentTargetIndex];
+
   const dartOptions = [
     { key: 'miss', label: 'Miss', sub: String(currentTarget), cls: 'btn-miss' },
     { key: 'single', label: 'Hit', sub: getTargetsForMarks(currentTargetIndex, 1), cls: 'btn-single' },
@@ -50,7 +71,7 @@ export default function ScoringScreen({ game, player, playerIndex, myPlayerName,
   }
 
   function handleDart(type) {
-    if (setDone) return;
+    if (setDone || isRoundScored) return;
     const newDarts = [...darts, type];
     setDarts(newDarts);
 
@@ -61,17 +82,16 @@ export default function ScoringScreen({ game, player, playerIndex, myPlayerName,
     const allTurnDarts = [...turnDarts, ...newDarts];
 
     if (hitBull) {
-      onTurnComplete(newTargetIndex, allTurnDarts, true, perfectSets);
+      onTurnComplete(currentPlayerIdx, newTargetIndex, allTurnDarts, true, perfectSets > 0 || isPerfect);
       return;
     }
 
     if (newDarts.length === 3) {
-      // Process this set
       if (!isPerfect) {
-        // Turn ends
-        onTurnComplete(newTargetIndex, allTurnDarts, false, perfectSets);
+        // Set complete — submit score for this round
+        onTurnComplete(currentPlayerIdx, newTargetIndex, allTurnDarts, false, perfectSets > 0 || isPerfect);
       } else {
-        // Perfect throw! Immediately continue with the next set
+        // Perfect throw! Immediately continue with next set of 3 bonus darts
         setSimulatedTargetIndex(newTargetIndex);
         setTurnDarts(allTurnDarts);
         setPerfectSets(s => s + 1);
@@ -86,82 +106,28 @@ export default function ScoringScreen({ game, player, playerIndex, myPlayerName,
   }
 
   const progress = currentTargetIndex / BULL_INDEX;
+  const roundsCount = Math.max(game.round, 1);
 
-  // Sort players by progress for the mini scoreboard
+  // Sort players by progress for the mini standings card
   const sortedPlayers = game.players
     .map((p, i) => ({ ...p, originalIndex: i }))
     .sort((a, b) => b.targetIndex - a.targetIndex);
 
-  // ── Hand-off gate ──────────────────────────────────────────────
-  if (!ready) {
-    // Multi-device: it's not this player's turn — show waiting screen
-    if (!isMyTurn) {
-      const myPlayer = myPlayerName
-        ? game.players.find(p => p.name === myPlayerName)
-        : null;
-      return (
-        <div className="screen">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <div className="round-badge">Round {game.round}</div>
-            <div className="spacer" />
-            <button
-              className="btn-danger"
-              style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
-              onClick={onQuit}
-            >
-              ✕ Quit
-            </button>
-          </div>
-
-          <div className="handoff-screen">
-            <div className="handoff-icon">⏳</div>
-            <h2>Wait for your turn</h2>
-            {myPlayerName && (
-              <p style={{ color: 'var(--accent)', fontWeight: 700 }}>{myPlayerName}</p>
-            )}
-            <p style={{ color: 'var(--muted)', marginTop: '0.25rem' }}>
-              <strong style={{ color: 'var(--text)' }}>{player.name}</strong> is throwing now…
-            </p>
-            {myPlayer && (
-              <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginTop: '0.5rem' }}>
-                Your target: <strong style={{ color: 'var(--accent)' }}>
-                  {TARGET_SEQUENCE[myPlayer.targetIndex]}
-                </strong>
-              </p>
-            )}
-          </div>
-
-          {/* Mini scoreboard visible while waiting */}
-          <div className="card">
-            <p className="section-title" style={{ marginBottom: '0.5rem' }}>Current Standings</p>
-            <div className="mini-scoreboard">
-              {sortedPlayers.map((p) => {
-                const isCurrent = p.originalIndex === playerIndex;
-                const isMe = p.name === myPlayerName;
-                const atBull = p.targetIndex === BULL_INDEX;
-                const target = TARGET_SEQUENCE[p.targetIndex];
-                return (
-                  <div key={p.originalIndex} className={`mini-score-row${isCurrent ? ' current-player' : ''}${p.finished ? ' finished' : ''}`}>
-                    <span className="mini-score-name">{p.finished ? '🏆 ' : ''}{p.name}{isMe ? ' (you)' : ''}</span>
-                    <span className={`mini-score-target${atBull ? ' at-bull' : ''}`}>
-                      {p.finished ? '🎯 Bull' : `→ ${target}`}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    // Single-device: pass device to the current player
+  // ── LOCKED SCORING VIEW (Already scored this round) ─────────────
+  if (isRoundScored) {
     return (
       <div className="screen">
-        {/* Header row with quit */}
+        {/* Header row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <div className="round-badge">Round {game.round}</div>
           <div className="spacer" />
+          <button
+            className="btn-secondary"
+            style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
+            onClick={onShowScoreboard}
+          >
+            📋 Scores
+          </button>
           <button
             className="btn-danger"
             style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
@@ -171,44 +137,73 @@ export default function ScoringScreen({ game, player, playerIndex, myPlayerName,
           </button>
         </div>
 
-        <div className="handoff-screen">
-          <div className="handoff-icon">📲</div>
-          <h2>Pass the device to</h2>
-          <h1 style={{ fontSize: '1.8rem' }}>{player.name}</h1>
-          <p>Hand this device to <strong style={{ color: 'var(--text)' }}>{player.name}</strong> so they can enter their own darts.</p>
-          <button
-            className="btn-primary"
-            style={{ marginTop: '0.5rem' }}
-            onClick={() => setReady(true)}
-          >
-            I'm {player.name} — I'm Ready 🎯
-          </button>
+        <div className="card" style={{ textAlign: 'center', padding: '1.5rem 1rem' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>✓</div>
+          <h2>Round {game.round} Complete!</h2>
+          <p style={{ color: 'var(--accent)', fontWeight: 700, fontSize: '1.1rem', marginTop: '0.25rem' }}>
+            {activePlayer.name}
+          </p>
+          <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+            Waiting for other players to finish Round {game.round}…
+          </p>
         </div>
 
-        {/* Mini scoreboard visible during hand-off */}
+        {/* Live Standings Card */}
         <div className="card">
           <p className="section-title" style={{ marginBottom: '0.5rem' }}>Current Standings — Round {game.round}</p>
           <div className="mini-scoreboard">
             {sortedPlayers.map((p) => {
-              const isCurrent = p.originalIndex === playerIndex;
+              const isCurrent = p.originalIndex === currentPlayerIdx;
+              const isMe = myPlayerName && p.name?.trim().toLowerCase() === myPlayerName.trim().toLowerCase();
               const atBull = p.targetIndex === BULL_INDEX;
               const target = TARGET_SEQUENCE[p.targetIndex];
+              const marks = p.marks ?? p.targetIndex ?? 0;
+              const mpr = (marks / roundsCount).toFixed(1);
+              const isPerfect = p.lastIsPerfect || p.perfectCount > 0;
+              const hasScoredThisRound = (p.roundCompleted ?? 0) >= game.round;
+
               return (
-                <div key={p.originalIndex} className={`mini-score-row${isCurrent ? ' current-player' : ''}${p.finished ? ' finished' : ''}`}>
-                  <span className="mini-score-name">{p.finished ? '🏆 ' : ''}{p.name}</span>
-                  <span className={`mini-score-target${atBull ? ' at-bull' : ''}`}>
-                    {p.finished ? '🎯 Bull' : `→ ${target}`}
-                  </span>
+                <div key={p.originalIndex} className={`mini-score-row${isCurrent ? ' current-player' : ''}${p.finished ? ' finished' : ''}${isPerfect ? ' is-perfect' : ''}`}>
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.3rem', overflow: 'hidden' }}>
+                    <span className="mini-score-name">
+                      {p.finished ? '🏆 ' : ''}{p.name}{isMe ? ' (you)' : ''}
+                    </span>
+                    {isPerfect && (
+                      <span className="perfect-badge">✨ PERFECT!</span>
+                    )}
+                    {hasScoredThisRound && !p.finished && (
+                      <span style={{ fontSize: '0.68rem', color: 'var(--accent)', fontWeight: 700 }}>
+                        ✓
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: '3rem' }}>
+                    <span className={`mini-score-target${atBull ? ' at-bull' : ''}`}>
+                      {p.finished ? '🎯 Bull' : target}
+                    </span>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--muted)', fontWeight: 600 }}>
+                      {mpr} MPR
+                    </span>
+                  </div>
                 </div>
               );
             })}
           </div>
         </div>
+
+        {/* Game logo brand footer */}
+        <div style={{ textAlign: 'center', marginTop: '1.25rem', marginBottom: '0.5rem', opacity: 0.85 }}>
+          <img
+            src="/logo.png"
+            alt="Johann's Folly"
+            style={{ height: '32px', width: 'auto', display: 'inline-block', objectFit: 'contain' }}
+          />
+        </div>
       </div>
     );
   }
 
-  // ── Main scoring UI ────────────────────────────────────────────
+  // ── ACTIVE SCORING UI ───────────────────────────────────────────
   return (
     <div className="screen">
       {/* Header row */}
@@ -233,7 +228,7 @@ export default function ScoringScreen({ game, player, playerIndex, myPlayerName,
 
       {/* Player & target */}
       <div className="card scoring-header">
-        <div className="target-label">Now throwing — <strong>{player.name}</strong></div>
+        <div className="target-label">Now throwing — <strong>{activePlayer.name}</strong></div>
         <div className="target-number">{currentTarget === 'Bull' ? '🎯 Bull' : currentTarget}</div>
         <div style={{ marginTop: '0.5rem' }}>
           <div className="progress-bar-wrap" style={{ height: 6 }}>
@@ -255,20 +250,37 @@ export default function ScoringScreen({ game, player, playerIndex, myPlayerName,
         <p className="section-title" style={{ marginBottom: '0.5rem' }}>Current Standings — Round {game.round}</p>
         <div className="mini-scoreboard">
           {sortedPlayers.map((p) => {
-            const isCurrent = p.originalIndex === playerIndex;
+            const isCurrent = p.originalIndex === currentPlayerIdx;
             const atBull = p.targetIndex === BULL_INDEX;
             const target = TARGET_SEQUENCE[p.targetIndex];
+            const marks = p.marks ?? p.targetIndex ?? 0;
+            const mpr = (marks / roundsCount).toFixed(1);
+            const isPerfect = p.lastIsPerfect || p.perfectCount > 0;
+            const hasScoredThisRound = (p.roundCompleted ?? 0) >= game.round;
+
             return (
-              <div key={p.originalIndex} className={`mini-score-row${isCurrent ? ' current-player' : ''}${p.finished ? ' finished' : ''}`}>
-                <span className="mini-score-name">{p.finished ? '🏆 ' : ''}{p.name}</span>
-                {isCurrent && !p.finished && (
-                  <span style={{ fontSize: '0.7rem', background: 'var(--accent)', color: '#000', borderRadius: '4px', padding: '0.1rem 0.35rem', fontWeight: 700 }}>
-                    NOW
+              <div key={p.originalIndex} className={`mini-score-row${isCurrent ? ' current-player' : ''}${p.finished ? ' finished' : ''}${isPerfect ? ' is-perfect' : ''}`}>
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.3rem', overflow: 'hidden' }}>
+                  <span className="mini-score-name">
+                    {p.finished ? '🏆 ' : ''}{p.name}
                   </span>
-                )}
-                <span className={`mini-score-target${atBull ? ' at-bull' : ''}`}>
-                  {p.finished ? '🎯 Bull' : `→ ${target}`}
-                </span>
+                  {isPerfect && (
+                    <span className="perfect-badge">✨ PERFECT!</span>
+                  )}
+                  {hasScoredThisRound && !p.finished && (
+                    <span style={{ fontSize: '0.68rem', color: 'var(--accent)', fontWeight: 700 }}>
+                      ✓
+                    </span>
+                  )}
+                </div>
+                <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: '3rem' }}>
+                  <span className={`mini-score-target${atBull ? ' at-bull' : ''}`}>
+                    {p.finished ? '🎯 Bull' : target}
+                  </span>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--muted)', fontWeight: 600 }}>
+                    {mpr} MPR
+                  </span>
+                </div>
               </div>
             );
           })}

@@ -136,6 +136,21 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   border-color: var(--accent2);
   background: #170d24;
 }
+.score-row.is-perfect, .mini-score-row.is-perfect {
+  border-color: var(--accent2);
+  background: linear-gradient(135deg, rgba(192, 132, 252, 0.2), rgba(30, 21, 58, 0.9));
+  box-shadow: 0 0 10px rgba(192, 132, 252, 0.35);
+}
+.perfect-badge {
+  font-size: 0.72rem;
+  background: var(--accent2);
+  color: #000;
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+  font-weight: 800;
+  margin-left: 0.25rem;
+  box-shadow: 0 0 6px rgba(192, 132, 252, 0.5);
+}
 .score-rank { width: 1.5rem; text-align: center; color: var(--muted); font-weight: 700; }
 .score-name { flex: 1; font-weight: 600; }
 .score-target {

@@ -115,13 +115,16 @@ export default function App() {
 
 
   // --- Turn complete: called when a player finishes all their darts ---
-  const handleTurnComplete = useCallback((newTargetIndex, allDarts, hitBull, isPerfect) => {
+  const handleTurnComplete = useCallback((scoringPlayerIdx, newTargetIndex, allDarts, hitBull, isPerfect) => {
     setGame(prev => {
-      const currentPlayer = prev.players[prev.currentPlayerIndex];
-      const playerName = currentPlayer.name;
+      if (!prev) return prev;
+      const targetPlayer = prev.players[scoringPlayerIdx];
+      if (!targetPlayer) return prev;
+
+      const playerName = targetPlayer.name;
 
       // Accumulate per-player stats for leaderboard
-      const prevMarks = currentPlayer.targetIndex;
+      const prevMarks = targetPlayer.targetIndex;
       const marksThisTurn = newTargetIndex - prevMarks;
       const dartsThisTurn = allDarts ? allDarts.length : 0;
       const stats = playerStatsRef.current;
@@ -134,24 +137,28 @@ export default function App() {
       // Update current player's progress — finished ONLY when actually hitting Bullseye
       const isFinished = hitBull;
       const players = prev.players.map((p, i) => {
-        if (i !== prev.currentPlayerIndex) return p;
+        if (i !== scoringPlayerIdx) return p;
         return {
           ...p,
           targetIndex: newTargetIndex,
           finished: p.finished || isFinished,
           finishedRound: isFinished ? (p.finishedRound ?? prev.round) : p.finishedRound,
+          roundCompleted: prev.round,
+          lastIsPerfect: isPerfect,
+          perfectCount: (p.perfectCount || 0) + (isPerfect ? 1 : 0),
+          marks: (p.marks ?? p.targetIndex) + marksThisTurn,
+          darts: (p.darts || 0) + dartsThisTurn,
         };
       });
 
-      // Advance to next player
-      const nextIdx = (prev.currentPlayerIndex + 1) % players.length;
-      const roundJustEnded = nextIdx === 0;
+      // Check if ALL active players have completed the current round
+      const roundJustEnded = players.every(p => p.finished || (p.roundCompleted ?? 0) >= prev.round);
       const newRound = roundJustEnded ? prev.round + 1 : prev.round;
-      let advanced = { ...prev, players, currentPlayerIndex: nextIdx, round: newRound };
+      let advanced = { ...prev, players, round: newRound };
 
       let nextView = 'scoring';
 
-      // Evaluate winner / tie playoff ONLY when the full round has completed
+      // Evaluate winner / tie playoff ONLY when all players have finished the round
       if (roundJustEnded) {
         const bullPlayers = players
           .map((p, i) => ({ p, i }))
@@ -303,11 +310,16 @@ export default function App() {
   }
 
   if (view === 'lobby') {
-    return <Lobby onCreateRoom={handleCreateRoom} onJoinRoom={handleJoinRoom} onSolo={handleSolo} loggedInUser={loggedInUser} onLogout={() => { logout(); setLoggedInUser(null); }} onShowLeaderboard={() => setView('leaderboard')} />;
-  }
-
-  if (view === 'leaderboard') {
-    return <LeaderboardView onClose={() => setView('lobby')} />;
+    return (
+      <Lobby
+        userName={loggedInUser}
+        onLogout={logout}
+        onCreateRoom={handleCreateRoom}
+        onJoinRoom={handleJoinRoom}
+        onSolo={handleSolo}
+        onShowLeaderboard={() => setView('leaderboard')}
+      />
+    );
   }
 
   if (view === 'room') {
@@ -317,15 +329,15 @@ export default function App() {
         isHost={isHost}
         myPlayerName={myPlayerName}
         onStart={handleRoomStart}
-        onLeave={() => { setRoomCode(null); setIsHost(false); setMyPlayerName(null); setView('lobby'); }}
+        onLeave={() => { setRoomCode(null); setView('lobby'); }}
       />
     );
   }
 
   if (view === 'winner') {
-    const winnerNames = finalWinners.map(i => game.players[i].name);
+    const winnerNames = finalWinners.map(i => game.players[i]?.name).filter(Boolean);
     const isPlayoff = Object.keys(playoffScores).length > 0;
-    const winnerName = winnerNames[0];
+    const winnerName = winnerNames[0] ?? 'Winner';
     const rounds = finalStats?.rounds ?? game.round;
     const winnerMarks = finalStats?.marksMap?.[winnerName] ?? BULL_INDEX;
     const winnerPerfects = finalStats?.perfectsMap?.[winnerName] ?? 0;
@@ -365,7 +377,7 @@ export default function App() {
               .sort((a, b) => b[1] - a[1])
               .map(([pi, sc]) => (
                 <div key={pi} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0' }}>
-                  <span>{game.players[pi].name}</span>
+                  <span>{game.players[pi]?.name}</span>
                   <strong style={{ color: 'var(--accent)' }}>{sc}</strong>
                 </div>
               ))}
@@ -410,53 +422,19 @@ export default function App() {
     );
   }
 
-  // scoring view — skip finished players automatically
-  let g = game;
-  let skipCount = 0;
-  while (g.players[g.currentPlayerIndex].finished && skipCount < g.players.length) {
-    g = advanceGame(g);
-    skipCount++;
-  }
-  if (g !== game && !g.players[g.currentPlayerIndex].finished) {
-    setGame(g);
-  }
-
-  // All players finished; winner/playoff view transition is active or pending
-  if (g.players[g.currentPlayerIndex].finished) {
-    if (view === 'playoff') {
-      return (
-        <PlayoffScreen
-          game={game}
-          playoffPlayers={playoffPlayers}
-          playoffNumber={playoffNumber}
-          playoffScores={playoffScores}
-          playoffCurrentIdx={playoffCurrentIdx}
-          myPlayerName={myPlayerName}
-          onPlayoffComplete={handlePlayoffComplete}
-          onPlayoffUpdate={handlePlayoffUpdate}
-          onPlayoffTie={handlePlayoffTie}
-        />
-      );
-    }
-    return (
-      <div className="screen">
-        <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🎯</div>
-          <h2>Game Complete!</h2>
-          <p style={{ color: 'var(--muted)', marginTop: '0.5rem' }}>Loading results…</p>
-        </div>
-      </div>
-    );
-  }
-
-  const currentPlayer = g.players[g.currentPlayerIndex];
+  // scoring view — all players score simultaneously for the current round
+  const defaultIdx = myPlayerName
+    ? game.players.findIndex(p => p.name?.trim().toLowerCase() === myPlayerName.trim().toLowerCase())
+    : 0;
+  const activeIdx = defaultIdx >= 0 ? defaultIdx : 0;
+  const activePlayer = game.players[activeIdx] || game.players[0];
 
   return (
     <ScoringScreen
-      key={`${g.currentPlayerIndex}-${g.round}`}
-      game={g}
-      player={currentPlayer}
-      playerIndex={g.currentPlayerIndex}
+      key={`scoring-${game.round}`}
+      game={game}
+      player={activePlayer}
+      playerIndex={activeIdx}
       myPlayerName={myPlayerName}
       onTurnComplete={handleTurnComplete}
       onShowScoreboard={() => setView('scoreboard')}
