@@ -69,17 +69,47 @@ export default function App() {
 
   // Sync game state across tabs/devices in the same room
   const { broadcast } = useGameSync(roomCode, useCallback((remoteGame) => {
-    setGame(remoteGame);
-    if (remoteGame?.view) {
-      setView(remoteGame.view);
-      if (remoteGame.playoffPlayers) setPlayoffPlayers(remoteGame.playoffPlayers);
-      if (remoteGame.playoffNumber !== undefined) setPlayoffNumber(remoteGame.playoffNumber);
-      if (remoteGame.playoffScores) setPlayoffScores(remoteGame.playoffScores);
-      if (remoteGame.playoffCurrentIdx !== undefined) setPlayoffCurrentIdx(remoteGame.playoffCurrentIdx);
-      if (remoteGame.finalWinners) setFinalWinners(remoteGame.finalWinners);
-      if (remoteGame.finalStats) setFinalStats(remoteGame.finalStats);
+    if (!remoteGame) return;
+
+    let updatedGame = remoteGame;
+
+    // Late Joiner Logic:
+    // If game is in progress ('scoring') and local user is not in players roster, add them!
+    if (
+      loggedInUser &&
+      remoteGame.view === 'scoring' &&
+      Array.isArray(remoteGame.players) &&
+      !remoteGame.players.some(p => p.name?.trim().toLowerCase() === loggedInUser.trim().toLowerCase())
+    ) {
+      const lateJoiner = {
+        name: loggedInUser,
+        targetIndex: 0,
+        finished: false,
+        finishedRound: null,
+        roundCompleted: (remoteGame.round ?? 1) - 1, // allow immediate scoring in current round
+        lastIsPerfect: false,
+        perfectCount: 0,
+        marks: 0,
+        darts: 0,
+      };
+      updatedGame = {
+        ...remoteGame,
+        players: [...remoteGame.players, lateJoiner],
+      };
+      setTimeout(() => broadcast(updatedGame), 0);
     }
-  }, []));
+
+    setGame(updatedGame);
+    if (updatedGame?.view) {
+      setView(updatedGame.view);
+      if (updatedGame.playoffPlayers) setPlayoffPlayers(updatedGame.playoffPlayers);
+      if (updatedGame.playoffNumber !== undefined) setPlayoffNumber(updatedGame.playoffNumber);
+      if (updatedGame.playoffScores) setPlayoffScores(updatedGame.playoffScores);
+      if (updatedGame.playoffCurrentIdx !== undefined) setPlayoffCurrentIdx(updatedGame.playoffCurrentIdx);
+      if (updatedGame.finalWinners) setFinalWinners(updatedGame.finalWinners);
+      if (updatedGame.finalStats) setFinalStats(updatedGame.finalStats);
+    }
+  }, [loggedInUser, broadcast]));
 
   // --- Lobby ---
   function handleCreateRoom() {
