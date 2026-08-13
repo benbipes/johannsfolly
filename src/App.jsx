@@ -67,6 +67,8 @@ export default function App() {
   // { [playerName]: { marks: number, darts: number, perfects: number } }
   const playerStatsRef = useRef({});
 
+  const broadcastRef = useRef(null);
+
   // Sync game state across tabs/devices in the same room
   const { broadcast } = useGameSync(roomCode, useCallback((remoteGame) => {
     if (!remoteGame) return;
@@ -112,9 +114,11 @@ export default function App() {
     }
 
     if (needsBroadcast) {
-      setTimeout(() => broadcast(updatedGame), 0);
+      setTimeout(() => broadcastRef.current?.(updatedGame), 0);
     }
-  }, [loggedInUser, broadcast]));
+  }, [loggedInUser]));
+
+  broadcastRef.current = broadcast;
 
   // --- Lobby ---
   function handleCreateRoom() {
