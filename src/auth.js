@@ -1,3 +1,5 @@
+import { getNetworkLoggedUsers, publishNetworkPresence } from './networkSync.js';
+
 const ACCOUNTS_KEY = 'jf:accounts';
 const SESSION_KEY = 'jf:session';
 const PRESENCE_PREFIX = 'jf:logged-user:';
@@ -18,8 +20,6 @@ function saveAccounts(accounts) {
 function isFresh(updatedAt, ttlMs) {
   return Number.isFinite(updatedAt) && Date.now() - updatedAt <= ttlMs;
 }
-
-import { getNetworkLoggedUsers, publishNetworkPresence } from './networkSync.js';
 
 export function broadcastLobbyUpdate() {
   try {
@@ -129,4 +129,3 @@ export function logout() {
   localStorage.removeItem(SESSION_KEY);
   broadcastLobbyUpdate();
 }
-
