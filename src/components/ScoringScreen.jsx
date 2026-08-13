@@ -1,21 +1,6 @@
 import { useState, useEffect } from 'react';
 import { TARGET_SEQUENCE, BULL_INDEX, processDarts } from '../gameLogic.js';
 
-const SLOT_ICONS = { miss: '✗', single: '🎯', double: '🎯🎯', triple: '🎯🎯🎯' };
-
-function getTargetsForMarks(targetIndex, marks) {
-  const targets = [];
-  let nextTargetIndex = targetIndex;
-
-  for (let i = 0; i < marks; i += 1) {
-    targets.push(TARGET_SEQUENCE[nextTargetIndex]);
-    if (nextTargetIndex === BULL_INDEX) break;
-    nextTargetIndex = Math.min(nextTargetIndex + 1, BULL_INDEX);
-  }
-
-  return targets.join(' → ');
-}
-
 export default function ScoringScreen({
   game,
   player,
@@ -111,7 +96,6 @@ export default function ScoringScreen({
     setDarts(prev => prev.slice(0, -1));
   }
 
-  const progress = currentTargetIndex / BULL_INDEX;
   const roundsCount = Math.max(game.round, 1);
 
   // Sort players by progress for mini standings
@@ -122,24 +106,13 @@ export default function ScoringScreen({
   const submittedCount = game.players.filter(p => p.finished || (p.roundCompleted ?? 0) >= game.round).length;
 
   return (
-    <div className="screen">
-      {/* Header row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <div className="round-badge">Round {game.round}</div>
+    <div className="screen figma-scoring-screen">
+      {/* Top Bar: Round Badge on Left, Quit Pill on Right */}
+      <div className="figma-header-bar">
+        <div className="figma-round-pill">Round {game.round}</div>
         <div className="spacer" />
-        <button
-          className="btn-secondary"
-          style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
-          onClick={onShowScoreboard}
-        >
-          📋 Scores
-        </button>
-        <button
-          className="btn-danger"
-          style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}
-          onClick={onQuit}
-        >
-          ✕ Quit
+        <button className="figma-quit-pill" onClick={onQuit}>
+          ✕ QUIT
         </button>
       </div>
 
@@ -164,67 +137,57 @@ export default function ScoringScreen({
 
       {/* If this player has submitted their round score */}
       {isRoundScored ? (
-        <div className="card" style={{ textAlign: 'center', padding: '1.5rem 1rem' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem', color: 'var(--accent)' }}>✓</div>
+        <div className="card" style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+          <div style={{ fontSize: '3rem', marginBottom: '0.5rem', color: 'var(--accent)' }}>✓</div>
           <h2>Round {game.round} Score Submitted!</h2>
-          <p style={{ color: 'var(--accent)', fontWeight: 700, fontSize: '1.1rem', marginTop: '0.25rem' }}>
+          <p style={{ color: 'var(--accent)', fontWeight: 800, fontSize: '1.3rem', marginTop: '0.35rem' }}>
             {activePlayer.name}
           </p>
-          <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+          <p style={{ color: 'var(--muted)', fontSize: '1.05rem', marginTop: '0.75rem' }}>
             Waiting for remaining players to submit Round {game.round}… ({submittedCount} / {game.players.length} ready)
           </p>
         </div>
       ) : (
         <>
-          {/* Player & target card */}
-          <div className="card scoring-header">
-            <div className="target-label">Scoring turn — <strong>{activePlayer.name}</strong></div>
-            <div className="target-number">{currentTarget === 'Bull' ? '🎯 Bull' : currentTarget}</div>
-            <div style={{ marginTop: '0.5rem' }}>
-              <div className="progress-bar-wrap" style={{ height: 6 }}>
-                <div className="progress-bar-fill" style={{ width: `${progress * 100}%` }} />
+          {/* Main Turn Section */}
+          <div className="figma-turn-section">
+            <div className="figma-turn-title">
+              Scoring Turn — {activePlayer.name}
+            </div>
+
+            <div className="figma-target-and-slots">
+              <div className="figma-hero-target">
+                {currentTarget === 'Bull' ? '🎯 Bull' : currentTarget}
+              </div>
+
+              <div className="figma-dart-slots-wrap">
+                {[0, 1, 2].map(i => {
+                  const result = darts[i];
+                  return (
+                    <div key={i} className={`figma-dart-card ${result || 'empty'}`}>
+                      <div className="figma-dart-icon">
+                        {result === 'miss' && <span className="icon-miss">✕</span>}
+                        {result === 'single' && <span className="icon-dot">●</span>}
+                        {result === 'double' && <span className="icon-dots-2">●●</span>}
+                        {result === 'triple' && <span className="icon-dots-3">∴</span>}
+                        {!result && <span className="icon-empty"></span>}
+                      </div>
+                      <div className="figma-dart-name">Dart {i + 1}</div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-            <div className="round-label">
-              {simulatedTargetIndex} / {BULL_INDEX} numbers cleared
-              {perfectSets > 0 && (
-                <span style={{ color: 'var(--accent2)', marginLeft: '0.5rem' }}>
-                  ✨ ×{perfectSets} perfect
-                </span>
-              )}
-            </div>
           </div>
 
-          {/* Dart slots */}
-          <div className="dart-slots">
-            {[0, 1, 2].map(i => {
-              const result = darts[i];
-              return (
-                <div key={i} className={`dart-slot${result ? ' ' + result : ''}`}>
-                  {result ? (
-                    <>
-                      <span className="dart-icon">{SLOT_ICONS[result]}</span>
-                      <span>{result}</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="dart-icon" style={{ opacity: 0.3 }}>🎯</span>
-                      <span>dart {i + 1}</span>
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Score buttons */}
+          {/* 2x2 Score Buttons Grid */}
           {!setDone && (
-            <>
-              <div className="score-btns">
+            <div className="figma-score-grid-wrap">
+              <div className="figma-score-grid">
                 {dartOptions.map(opt => (
                   <button
                     key={opt.key}
-                    className={`score-btn ${opt.cls}`}
+                    className={`figma-score-btn ${opt.cls}`}
                     onClick={() => handleDart(opt.key)}
                   >
                     {opt.label}
@@ -232,26 +195,31 @@ export default function ScoringScreen({
                 ))}
               </div>
               {darts.length > 0 && (
-                <button className="btn-secondary" style={{ fontSize: '0.85rem', padding: '0.5rem' }} onClick={undoLast}>
+                <button
+                  className="btn-secondary"
+                  style={{ width: '100%', marginTop: '0.65rem', padding: '0.6rem', fontSize: '1rem' }}
+                  onClick={undoLast}
+                >
                   ↩ Undo last dart
                 </button>
               )}
-            </>
+            </div>
           )}
 
-          {/* Waiting for process */}
           {setDone && (
-            <div style={{ textAlign: 'center', color: 'var(--muted)' }}>Calculating…</div>
+            <div style={{ textAlign: 'center', color: 'var(--accent)', fontWeight: 700, padding: '1rem 0' }}>
+              Calculating score…
+            </div>
           )}
         </>
       )}
 
-      {/* Mini Standings Card — always visible */}
-      <div className="card">
-        <p className="section-title" style={{ marginBottom: '0.5rem' }}>
-          Current Standings — Round {game.round}
+      {/* Current Standings Card */}
+      <div className="card figma-standings-card">
+        <p className="figma-standings-title">
+          CURRENT STANDINGS — ROUND {game.round}
         </p>
-        <div className="mini-scoreboard">
+        <div className="figma-standings-list">
           {sortedPlayers.map((p) => {
             const isCurrent = p.originalIndex === selectedIdx;
             const isMe = myPlayerName && p.name?.trim().toLowerCase() === myPlayerName.trim().toLowerCase();
@@ -263,27 +231,27 @@ export default function ScoringScreen({
             const hasScoredThisRound = (p.roundCompleted ?? 0) >= game.round;
 
             return (
-              <div key={p.originalIndex} className={`mini-score-row${isCurrent ? ' current-player' : ''}${p.finished ? ' finished' : ''}${isPerfect ? ' is-perfect' : ''}`}>
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.3rem', overflow: 'hidden' }}>
-                  <span className="mini-score-name">
+              <div
+                key={p.originalIndex}
+                className={`figma-standings-row${isCurrent ? ' active-player' : ''}${p.finished ? ' finished' : ''}`}
+              >
+                <div className="figma-row-left">
+                  <span className="figma-player-name">
                     {p.finished ? '🏆 ' : ''}{p.name}{isMe ? ' (you)' : ''}
                   </span>
-                  {isPerfect && (
-                    <span className="perfect-badge">✨ PERFECT!</span>
-                  )}
-                  {hasScoredThisRound && !p.finished && (
-                    <span style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 800 }}>
-                      ✓
-                    </span>
-                  )}
+                  {isPerfect && <span className="perfect-badge">✨ PERFECT!</span>}
                 </div>
-                <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: '3rem' }}>
-                  <span className={`mini-score-target${atBull ? ' at-bull' : ''}`}>
-                    {p.finished ? '🎯 Bull' : target}
-                  </span>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--muted)', fontWeight: 600 }}>
-                    {mpr} MPR
-                  </span>
+
+                <div className="figma-row-right">
+                  {hasScoredThisRound && !p.finished && (
+                    <span className="figma-check-icon">✓</span>
+                  )}
+                  <div className="figma-target-wrap">
+                    <span className={`figma-target-val${atBull ? ' at-bull' : ''}`}>
+                      {p.finished ? '🎯 Bull' : target}
+                    </span>
+                    <span className="figma-mpr-val">{mpr} MPR</span>
+                  </div>
                 </div>
               </div>
             );
@@ -291,13 +259,9 @@ export default function ScoringScreen({
         </div>
       </div>
 
-      {/* Game logo brand footer */}
-      <div style={{ textAlign: 'center', marginTop: '1.25rem', marginBottom: '0.5rem', opacity: 0.85 }}>
-        <img
-          src="/logo.png"
-          alt="Johann's Folly"
-          style={{ height: '32px', width: 'auto', display: 'inline-block', objectFit: 'contain' }}
-        />
+      {/* Prominent Figma Brand Logo Footer */}
+      <div className="figma-brand-footer">
+        <img src="/logo.png" alt="Johann's Folly" className="figma-brand-logo" />
       </div>
     </div>
   );
