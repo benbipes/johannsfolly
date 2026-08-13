@@ -227,7 +227,7 @@ export default function ScoringScreen({
             const target = TARGET_SEQUENCE[p.targetIndex];
             const marks = p.marks ?? p.targetIndex ?? 0;
             const mpr = (marks / roundsCount).toFixed(1);
-            const isPerfect = p.lastIsPerfect || p.perfectCount > 0;
+            const isPerfect = p.perfectInRound === game.round || (p.lastIsPerfect && (p.roundCompleted ?? 0) === game.round);
             const hasScoredThisRound = (p.roundCompleted ?? 0) >= game.round;
 
             return (

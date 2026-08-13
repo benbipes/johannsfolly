@@ -29,7 +29,7 @@ export default function Scoreboard({ game, onClose }) {
           const progress = player.targetIndex / BULL_INDEX;
           const marks = player.marks ?? player.targetIndex ?? 0;
           const mpr = (marks / rounds).toFixed(1);
-          const isPerfect = player.lastIsPerfect || player.perfectCount > 0;
+          const isPerfect = player.perfectInRound === game.round || (player.lastIsPerfect && (player.roundCompleted ?? 0) === game.round);
 
           return (
             <div

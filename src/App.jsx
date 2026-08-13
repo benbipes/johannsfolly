@@ -184,6 +184,7 @@ export default function App() {
           finishedRound: isFinished ? (p.finishedRound ?? prev.round) : p.finishedRound,
           roundCompleted: prev.round,
           lastIsPerfect: isPerfect,
+          perfectInRound: isPerfect ? prev.round : null,
           perfectCount: (p.perfectCount || 0) + (isPerfect ? 1 : 0),
           marks: (p.marks ?? p.targetIndex) + marksThisTurn,
           darts: (p.darts || 0) + dartsThisTurn,
@@ -397,18 +398,31 @@ export default function App() {
         </div>
 
         <div className="card">
-          <p className="section-title" style={{ marginBottom: '0.5rem' }}>Game Results — {winnerName}</p>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0' }}>
-            <span>Rounds taken</span>
-            <strong style={{ color: 'var(--accent)' }}>{rounds}</strong>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0' }}>
-            <span>MPR (marks per round)</span>
-            <strong style={{ color: 'var(--accent)' }}>{mpr}</strong>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0' }}>
-            <span>Perfect throws</span>
-            <strong style={{ color: 'var(--accent2)' }}>{winnerPerfects}</strong>
+          <p className="section-title" style={{ marginBottom: '0.75rem' }}>Final Player Results</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+            {game.players.map((p, idx) => {
+              const pMarks = finalStats?.marksMap?.[p.name] ?? p.targetIndex;
+              const pPerfects = finalStats?.perfectsMap?.[p.name] ?? p.perfectCount ?? 0;
+              const pMpr = rounds > 0 ? (pMarks / rounds).toFixed(2) : '—';
+              const isWinner = finalWinners.includes(idx);
+              return (
+                <div key={p.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.55rem 0.85rem', background: 'var(--surface2)', borderRadius: '10px', border: isWinner ? '2px solid var(--accent)' : '1px solid var(--border)' }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '1.15rem', color: isWinner ? 'var(--accent)' : 'var(--text)' }}>
+                      {isWinner ? '🏆 ' : ''}{p.name}
+                    </div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--muted)', fontWeight: 600 }}>
+                      {pMpr} MPR
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ color: 'var(--accent2)', fontWeight: 800, fontSize: '1.05rem' }}>
+                      {pPerfects > 0 ? `✨ ${pPerfects} Perfect${pPerfects > 1 ? 's' : ''}` : '0 Perfects'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
