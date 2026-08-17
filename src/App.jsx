@@ -48,6 +48,7 @@ export default function App() {
   const [playoffScores, setPlayoffScores] = useState({});
   const [playoffNumber, setPlayoffNumber] = useState(null);
   const [playoffCurrentIdx, setPlayoffCurrentIdx] = useState(0);
+  const [legsWonMap, setLegsWonMap] = useState({});
 
   useEffect(() => {
     if (!loggedInUser) return;
@@ -111,6 +112,7 @@ export default function App() {
       if (updatedGame.playoffCurrentIdx !== undefined) setPlayoffCurrentIdx(updatedGame.playoffCurrentIdx);
       if (updatedGame.finalWinners) setFinalWinners(updatedGame.finalWinners);
       if (updatedGame.finalStats) setFinalStats(updatedGame.finalStats);
+      if (updatedGame.legsWonMap) setLegsWonMap(updatedGame.legsWonMap);
     }
 
     if (needsBroadcast) {
@@ -144,9 +146,11 @@ export default function App() {
   }
 
   // --- Room start ---
-  function handleRoomStart(playerNames) {
-    const newGame = createGame(playerNames);
+  function handleRoomStart(playerNames, keepLegs = false) {
+    const currentLegs = keepLegs ? (game?.legsWonMap || legsWonMap) : {};
+    const newGame = createGame(playerNames, currentLegs);
     setGame(newGame);
+    if (!keepLegs) setLegsWonMap({});
     playerStatsRef.current = {};
     broadcast({ ...newGame, view: 'scoring' });
     setView('scoring');
@@ -209,16 +213,28 @@ export default function App() {
 
         if (bullPlayers.length === 1) {
           const winnerIdx = bullPlayers[0];
+          const nextLegsWonMap = { ...(prev.legsWonMap || {}) };
+          bullPlayers.forEach(i => {
+            const wName = players[i].name;
+            nextLegsWonMap[wName] = (nextLegsWonMap[wName] || 0) + 1;
+          });
+          setLegsWonMap(nextLegsWonMap);
+
+          const updatedPlayers = players.map(p => ({
+            ...p,
+            legsWon: nextLegsWonMap[p.name] || 0,
+          }));
+
           const marksMap = {};
           const dartsMap = {};
           const perfectsMap = {};
-          players.forEach(p => {
+          updatedPlayers.forEach(p => {
             marksMap[p.name] = p.marks ?? p.targetIndex;
             dartsMap[p.name] = p.darts ?? 0;
             perfectsMap[p.name] = p.perfectCount ?? 0;
           });
-          recordGame(players, [winnerIdx], prev.round, marksMap, dartsMap);
-          const fStats = { rounds: prev.round, marksMap, dartsMap, perfectsMap };
+          recordGame(updatedPlayers, [winnerIdx], prev.round, marksMap, dartsMap);
+          const fStats = { rounds: prev.round, marksMap, dartsMap, perfectsMap, legsWonMap: nextLegsWonMap };
           nextView = 'winner';
           setFinalWinners([winnerIdx]);
           setFinalStats(fStats);
@@ -227,9 +243,11 @@ export default function App() {
           setView('winner');
           advanced = {
             ...advanced,
+            players: updatedPlayers,
             view: 'winner',
             finalWinners: [winnerIdx],
             finalStats: fStats,
+            legsWonMap: nextLegsWonMap,
             playoffScores: {},
             playoffNumber: null,
           };
@@ -263,17 +281,29 @@ export default function App() {
   }, []);
 
   const handlePlayoffComplete = useCallback((winners = [], scores = {}) => {
+    const nextLegsWonMap = { ...(game.legsWonMap || legsWonMap) };
+    winners.forEach(i => {
+      const wName = game.players[i]?.name;
+      if (wName) nextLegsWonMap[wName] = (nextLegsWonMap[wName] || 0) + 1;
+    });
+    setLegsWonMap(nextLegsWonMap);
+
+    const updatedPlayers = game.players.map(p => ({
+      ...p,
+      legsWon: nextLegsWonMap[p.name] || 0,
+    }));
+
     const marksMap = {};
     const dartsMap = {};
     const perfectsMap = {};
-    game.players.forEach(p => {
+    updatedPlayers.forEach(p => {
       marksMap[p.name] = p.marks ?? p.targetIndex;
       dartsMap[p.name] = p.darts ?? 0;
       perfectsMap[p.name] = p.perfectCount ?? 0;
     });
-    recordGame(game.players, winners, game.round, marksMap, dartsMap);
+    recordGame(updatedPlayers, winners, game.round, marksMap, dartsMap);
 
-    const fStats = { rounds: game.round, marksMap, dartsMap, perfectsMap };
+    const fStats = { rounds: game.round, marksMap, dartsMap, perfectsMap, legsWonMap: nextLegsWonMap };
     setFinalWinners(winners);
     setFinalStats(fStats);
     setPlayoffScores(scores);
@@ -281,12 +311,14 @@ export default function App() {
 
     broadcast({
       ...game,
+      players: updatedPlayers,
       view: 'winner',
       finalWinners: winners,
       finalStats: fStats,
+      legsWonMap: nextLegsWonMap,
       playoffScores: scores,
     });
-  }, [game, broadcast]);
+  }, [game, legsWonMap, broadcast]);
 
   const handlePlayoffUpdate = useCallback((newScores, newCurrentIdx) => {
     if (newScores) setPlayoffScores(newScores);
@@ -337,6 +369,7 @@ export default function App() {
     setRoomCode(null);
     setIsHost(false);
     setMyPlayerName(null);
+    setLegsWonMap({});
     setView('lobby');
   }
 
@@ -397,10 +430,11 @@ export default function App() {
             {game.players.map((p, idx) => {
               const pMarks = finalStats?.marksMap?.[p.name] ?? p.targetIndex;
               const pPerfects = finalStats?.perfectsMap?.[p.name] ?? p.perfectCount ?? 0;
+              const pLegs = p.legsWon ?? finalStats?.legsWonMap?.[p.name] ?? legsWonMap[p.name] ?? 0;
               const pMpr = rounds > 0 ? (pMarks / rounds).toFixed(2) : '—';
               const isWinner = finalWinners.includes(idx);
               return (
-                <div key={p.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.55rem 0.85rem', background: 'var(--surface2)', borderRadius: '10px', border: isWinner ? '2px solid var(--accent)' : '1px solid var(--border)' }}>
+                <div key={p.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.65rem 0.85rem', background: 'var(--surface2)', borderRadius: '10px', border: isWinner ? '2px solid var(--accent)' : '1px solid var(--border)' }}>
                   <div>
                     <div style={{ fontWeight: 800, fontSize: '1.15rem', color: isWinner ? 'var(--accent)' : 'var(--text)' }}>
                       {isWinner ? '🏆 ' : ''}{p.name}
@@ -409,9 +443,12 @@ export default function App() {
                       {pMpr} MPR
                     </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{ color: 'var(--accent2)', fontWeight: 800, fontSize: '1.05rem' }}>
+                  <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.15rem' }}>
+                    <span style={{ color: 'var(--accent2)', fontWeight: 800, fontSize: '0.95rem' }}>
                       {pPerfects > 0 ? `✨ ${pPerfects} Perfect${pPerfects > 1 ? 's' : ''}` : '0 Perfects'}
+                    </span>
+                    <span style={{ color: 'var(--accent)', fontWeight: 800, fontSize: '1.05rem' }}>
+                      🏆 {pLegs} Leg{pLegs !== 1 ? 's' : ''} Won
                     </span>
                   </div>
                 </div>
@@ -443,7 +480,7 @@ export default function App() {
           </button>
           <button className="btn-secondary" onClick={() => {
             const playerNames = game.players.map(p => p.name);
-            handleRoomStart(playerNames);
+            handleRoomStart(playerNames, true);
           }}>
             🎯 Rematch / Play Again
           </button>

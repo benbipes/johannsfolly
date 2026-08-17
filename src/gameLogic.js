@@ -2,7 +2,7 @@
 export const TARGET_SEQUENCE = [20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 'Bull'];
 export const BULL_INDEX = TARGET_SEQUENCE.length - 1; // 20
 
-export function createPlayer(name) {
+export function createPlayer(name, legsWon = 0) {
   return {
     name,
     targetIndex: 0, // starts at 20
@@ -14,12 +14,13 @@ export function createPlayer(name) {
     perfectCount: 0,
     marks: 0,
     darts: 0,
+    legsWon: legsWon || 0,
   };
 }
 
-export function createGame(playerNames) {
+export function createGame(playerNames, legsWonMap = {}) {
   return {
-    players: playerNames.map(createPlayer),
+    players: playerNames.map(name => createPlayer(name, legsWonMap[name] || 0)),
     round: 1,
     currentPlayerIndex: 0,
     phase: 'playing', // 'playing' | 'playoff_pick' | 'playoff' | 'done'
@@ -28,6 +29,7 @@ export function createGame(playerNames) {
     playoffScores: {}, // playerIndex -> count of hits
     playoffCurrentIndex: 0, // which playoff player is currently throwing
     gameWinner: null, // player index if sole winner
+    legsWonMap: legsWonMap || {},
   };
 }
 
