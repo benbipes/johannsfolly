@@ -89,10 +89,11 @@ export default function Leaderboard({ onClose }) {
                     {entry.lastGame ? relativeDate(entry.lastGame.date) : '—'}
                   </span>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--muted)' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
                   <span>{entry.games} game{entry.games !== 1 ? 's' : ''}</span>
+                  <span>· <span style={{ color: 'var(--accent2)', fontWeight: 700 }}>✨ {entry.totalPerfects || 0} Perfect{entry.totalPerfects !== 1 ? 's' : ''}</span></span>
                   {entry.lastGame && (
-                    <span>· last game: {entry.lastGame.won ? <span style={{ color: 'var(--accent2)' }}>Win 🏆</span> : 'Loss'} in {entry.lastGame.rounds} round{entry.lastGame.rounds !== 1 ? 's' : ''}</span>
+                    <span>· last: {entry.lastGame.won ? <span style={{ color: 'var(--accent2)' }}>Win 🏆</span> : 'Loss'} in {entry.lastGame.rounds} rds</span>
                   )}
                 </div>
               </div>

@@ -8,6 +8,12 @@ export function createPlayer(name) {
     targetIndex: 0, // starts at 20
     finished: false,
     finishedRound: null,
+    roundCompleted: 0,
+    lastIsPerfect: false,
+    perfectInRound: null,
+    perfectCount: 0,
+    marks: 0,
+    darts: 0,
   };
 }
 

@@ -52,6 +52,7 @@ export function recordGame(players, winnerIndices, totalRounds, marksPerPlayer, 
     const isWinner = winnerIndices.includes(i);
     const marks = marksPerPlayer[name] ?? player.targetIndex; // fallback to final targetIndex
     const darts = dartsPerPlayer[name] ?? 0;
+    const perfects = player.perfectCount ?? 0;
 
     if (isWinner) data[name].wins += 1;
 
@@ -61,6 +62,7 @@ export function recordGame(players, winnerIndices, totalRounds, marksPerPlayer, 
       rounds: totalRounds,
       totalDarts: darts,
       totalMarks: marks,
+      totalPerfects: perfects,
     });
 
     // Keep only the last 100 games per player to cap storage
@@ -74,7 +76,7 @@ export function recordGame(players, winnerIndices, totalRounds, marksPerPlayer, 
 
 /**
  * Returns an array of player stats sorted by wins (desc), then avgMPR (desc).
- * Each entry: { name, wins, games, avgMPR, avgRounds, lastGame }
+ * Each entry: { name, wins, games, avgMPR, avgRounds, totalPerfects, lastGame }
  */
 export function getLeaderboard() {
   const data = loadRaw();
@@ -84,6 +86,7 @@ export function getLeaderboard() {
       const games = stats.games ?? [];
       const totalMarks = games.reduce((s, g) => s + (g.totalMarks || 0), 0);
       const totalRounds = games.reduce((s, g) => s + (g.rounds || 0), 0);
+      const totalPerfects = games.reduce((s, g) => s + (g.totalPerfects || 0), 0);
       const avgMPR = games.length > 0 && totalRounds > 0 ? totalMarks / totalRounds : 0;
       const avgRounds = games.length > 0 ? totalRounds / games.length : 0;
       const lastGame = games.length > 0 ? games[games.length - 1] : null;
@@ -94,6 +97,7 @@ export function getLeaderboard() {
         games: games.length,
         avgMPR,
         avgRounds,
+        totalPerfects,
         lastGame,
       };
     })

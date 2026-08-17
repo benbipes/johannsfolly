@@ -201,7 +201,6 @@ export default function App() {
 
       let nextView = 'scoring';
 
-      // Evaluate winner / tie playoff ONLY when all players have finished the round
       if (roundJustEnded) {
         const bullPlayers = players
           .map((p, i) => ({ p, i }))
@@ -209,15 +208,14 @@ export default function App() {
           .map(({ i }) => i);
 
         if (bullPlayers.length === 1) {
-          // Sole winner at the end of the round
           const winnerIdx = bullPlayers[0];
           const marksMap = {};
           const dartsMap = {};
           const perfectsMap = {};
           players.forEach(p => {
-            marksMap[p.name] = stats[p.name]?.marks ?? p.targetIndex;
-            dartsMap[p.name] = stats[p.name]?.darts ?? 0;
-            perfectsMap[p.name] = stats[p.name]?.perfects ?? 0;
+            marksMap[p.name] = p.marks ?? p.targetIndex;
+            dartsMap[p.name] = p.darts ?? 0;
+            perfectsMap[p.name] = p.perfectCount ?? 0;
           });
           recordGame(players, [winnerIdx], prev.round, marksMap, dartsMap);
           const fStats = { rounds: prev.round, marksMap, dartsMap, perfectsMap };
@@ -236,7 +234,6 @@ export default function App() {
             playoffNumber: null,
           };
         } else if (bullPlayers.length > 1) {
-          // Multiple players reached Bull by end of round -> Playoff tiebreaker!
           const pNum = choosePlayoffNumber();
           nextView = 'playoff';
           setPlayoffPlayers(bullPlayers);
@@ -260,22 +257,19 @@ export default function App() {
         advanced = { ...advanced, view: 'scoring' };
       }
 
-      setTimeout(() => broadcast(advanced), 0);
+      setTimeout(() => broadcastRef.current?.(advanced), 0);
       return advanced;
     });
-  }, [broadcast]);
+  }, []);
 
-  // --- Playoff complete ---
-  function handlePlayoffComplete(winners, scores) {
-    // Record the game result after playoff
+  const handlePlayoffComplete = useCallback((winners = [], scores = {}) => {
     const marksMap = {};
     const dartsMap = {};
     const perfectsMap = {};
-    const stats = playerStatsRef.current;
     game.players.forEach(p => {
-      marksMap[p.name] = stats[p.name]?.marks ?? p.targetIndex;
-      dartsMap[p.name] = stats[p.name]?.darts ?? 0;
-      perfectsMap[p.name] = stats[p.name]?.perfects ?? 0;
+      marksMap[p.name] = p.marks ?? p.targetIndex;
+      dartsMap[p.name] = p.darts ?? 0;
+      perfectsMap[p.name] = p.perfectCount ?? 0;
     });
     recordGame(game.players, winners, game.round, marksMap, dartsMap);
 
@@ -292,7 +286,7 @@ export default function App() {
       finalStats: fStats,
       playoffScores: scores,
     });
-  }
+  }, [game, broadcast]);
 
   const handlePlayoffUpdate = useCallback((newScores, newCurrentIdx) => {
     if (newScores) setPlayoffScores(newScores);
