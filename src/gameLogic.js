@@ -20,6 +20,7 @@ export function createPlayer(name, legsWon = 0) {
 
 export function createGame(playerNames, legsWonMap = {}) {
   return {
+    gameId: 'game_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
     players: playerNames.map(name => createPlayer(name, legsWonMap[name] || 0)),
     round: 1,
     currentPlayerIndex: 0,

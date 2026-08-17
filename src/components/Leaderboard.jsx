@@ -29,6 +29,20 @@ export default function Leaderboard({ onClose }) {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         <h2 style={{ flex: 1, color: 'var(--accent)' }}>🏆 Leaderboard</h2>
+        {entries.length > 0 && (
+          <button
+            className="btn-secondary"
+            style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem', color: 'var(--danger)', borderColor: 'var(--danger)' }}
+            onClick={() => {
+              if (window.confirm('Reset all leaderboard stats?')) {
+                clearLeaderboard();
+                setEntries([]);
+              }
+            }}
+          >
+            🗑️ Reset
+          </button>
+        )}
         <button
           className="btn-secondary"
           style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }}

@@ -113,6 +113,17 @@ export default function App() {
       if (updatedGame.finalWinners) setFinalWinners(updatedGame.finalWinners);
       if (updatedGame.finalStats) setFinalStats(updatedGame.finalStats);
       if (updatedGame.legsWonMap) setLegsWonMap(updatedGame.legsWonMap);
+
+      if (updatedGame.view === 'winner' && updatedGame.finalWinners?.length > 0) {
+        recordGame(
+          updatedGame.players,
+          updatedGame.finalWinners,
+          updatedGame.finalStats?.rounds ?? updatedGame.round ?? 1,
+          updatedGame.finalStats?.marksMap ?? {},
+          updatedGame.finalStats?.dartsMap ?? {},
+          updatedGame.gameId
+        );
+      }
     }
 
     if (needsBroadcast) {
@@ -233,7 +244,7 @@ export default function App() {
             dartsMap[p.name] = p.darts ?? 0;
             perfectsMap[p.name] = p.perfectCount ?? 0;
           });
-          recordGame(updatedPlayers, [winnerIdx], prev.round, marksMap, dartsMap);
+          recordGame(updatedPlayers, [winnerIdx], prev.round, marksMap, dartsMap, prev.gameId);
           const fStats = { rounds: prev.round, marksMap, dartsMap, perfectsMap, legsWonMap: nextLegsWonMap };
           nextView = 'winner';
           setFinalWinners([winnerIdx]);
@@ -301,7 +312,7 @@ export default function App() {
       dartsMap[p.name] = p.darts ?? 0;
       perfectsMap[p.name] = p.perfectCount ?? 0;
     });
-    recordGame(updatedPlayers, winners, game.round, marksMap, dartsMap);
+    recordGame(updatedPlayers, winners, game.round, marksMap, dartsMap, game.gameId);
 
     const fStats = { rounds: game.round, marksMap, dartsMap, perfectsMap, legsWonMap: nextLegsWonMap };
     setFinalWinners(winners);
