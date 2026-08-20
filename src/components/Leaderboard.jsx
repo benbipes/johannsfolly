@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getLeaderboard, clearLeaderboard, requestLeaderboardSync } from '../leaderboard.js';
+import { getLeaderboard, clearAllGameData, requestLeaderboardSync } from '../leaderboard.js';
 import { subscribeNetworkLeaderboard } from '../networkSync.js';
 
 function fmt(n, decimals = 1) {
@@ -55,8 +55,8 @@ export default function Leaderboard({ onClose }) {
             className="btn-secondary"
             style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem', color: 'var(--danger)', borderColor: 'var(--danger)' }}
             onClick={() => {
-              if (window.confirm('Reset all leaderboard stats?')) {
-                clearLeaderboard();
+              if (window.confirm('Reset all leaderboard stats and game cache?')) {
+                clearAllGameData();
                 setEntries([]);
               }
             }}

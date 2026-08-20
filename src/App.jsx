@@ -13,7 +13,7 @@ import { BULL_INDEX, createGame, mergeGameState } from './gameLogic.js';
 import { useGameSync } from './useGameSync.js';
 import { getLoggedInUser, logout, refreshLoggedUserPresence } from './auth.js';
 import { recordGame } from './leaderboard.js';
-import { playSound, playNewRoundSound } from './audio.js';
+import { playNewRoundSound } from './audio.js';
 
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -123,7 +123,6 @@ export default function App() {
         if (mergedGame.legsWonMap) setLegsWonMap(mergedGame.legsWonMap);
 
         if (mergedGame.view === 'winner' && mergedGame.finalWinners?.length > 0) {
-          playSound('win');
           recordGame(
             mergedGame.players,
             mergedGame.finalWinners,

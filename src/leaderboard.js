@@ -214,10 +214,32 @@ export function getLeaderboard() {
     .sort((a, b) => b.wins - a.wins || b.avgMPR - a.avgMPR);
 }
 
-/** Remove all leaderboard data (reset). */
+/** Remove all leaderboard data and broadcast reset to all clients. */
 export function clearLeaderboard() {
   try {
-    localStorage.removeItem(STORAGE_KEY);
-    broadcastLeaderboardData();
+    const emptyData = { players: {}, recordedIds: {} };
+    saveRaw(emptyData);
+    const payload = { type: 'leaderboard_sync', data: emptyData };
+    try {
+      const ch = new BroadcastChannel(CHANNEL_NAME);
+      ch.postMessage(payload);
+      ch.close();
+    } catch { /* ignore */ }
+    publishNetworkLeaderboard(payload);
+  } catch { /* ignore */ }
+}
+
+/** Clear all leaderboard data AND all local game/room cache keys for a fresh start. */
+export function clearAllGameData() {
+  try {
+    clearLeaderboard();
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith('game:') || key.startsWith('room:') || key.startsWith('room-player:') || key.startsWith('jf:'))) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(k => localStorage.removeItem(k));
   } catch { /* ignore */ }
 }
