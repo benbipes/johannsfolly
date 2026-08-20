@@ -1,15 +1,33 @@
 import { useState, useEffect } from 'react';
 import { TARGET_SEQUENCE, BULL_INDEX, processDarts } from '../gameLogic.js';
+import { playSound, isSoundEnabled, toggleSound, unlockAudio } from '../audio.js';
 
 export default function ScoringScreen({
   game,
   player,
   playerIndex,
   myPlayerName,
+  roomCode,
   onTurnComplete,
   onShowScoreboard,
   onQuit,
 }) {
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [soundOn, setSoundOn] = useState(() => isSoundEnabled());
+
+  function handleToggleSound() {
+    setSoundOn(toggleSound());
+  }
+
+  async function handleCopyRoomCode() {
+    if (!roomCode) return;
+    try {
+      await navigator.clipboard.writeText(roomCode);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
+    } catch { /* ignore */ }
+  }
+
   // Determine if this device belongs to a specific user
   const boundIdx = myPlayerName
     ? game.players.findIndex(p => p.name?.trim().toLowerCase() === myPlayerName.trim().toLowerCase())
@@ -63,6 +81,9 @@ export default function ScoringScreen({
 
   function handleDart(type) {
     if (setDone || isRoundScored) return;
+    unlockAudio();
+    playSound(type);
+
     const newDarts = [...darts, type];
     setDarts(newDarts);
 
@@ -73,16 +94,23 @@ export default function ScoringScreen({
     const allTurnDarts = [...turnDarts, ...newDarts];
 
     if (hitBull) {
+      playSound('bullseye');
       onTurnComplete(selectedIdx, newTargetIndex, allTurnDarts, true, perfectSets > 0 || isPerfect);
       return;
     }
 
     if (newDarts.length === 3) {
+      const isSilverLining = newDarts[0] === 'miss' && newDarts[1] === 'miss' && newDarts[2] === 'triple';
+      if (isSilverLining) {
+        playSound('silverlining');
+      }
+
       if (!isPerfect) {
         // Submit score for this round
         onTurnComplete(selectedIdx, newTargetIndex, allTurnDarts, false, perfectSets > 0 || isPerfect);
       } else {
         // Perfect throw! Immediately continue with next set of 3 bonus darts
+        playSound('perfect');
         setSimulatedTargetIndex(newTargetIndex);
         setTurnDarts(allTurnDarts);
         setPerfectSets(s => s + 1);
@@ -107,10 +135,36 @@ export default function ScoringScreen({
 
   return (
     <div className="screen figma-scoring-screen">
-      {/* Top Bar: Round Badge on Left, Quit Pill on Right */}
+      {/* Top Bar: Round Badge on Left, Room Code in Center, Quit Pill on Right */}
       <div className="figma-header-bar">
         <div className="figma-round-pill">Round {game.round}</div>
+        {roomCode && (
+          <button
+            className="figma-room-pill"
+            onClick={handleCopyRoomCode}
+            title="Click to copy room code"
+          >
+            {copiedCode ? '✓ Copied' : `🔑 Room: ${roomCode}`}
+          </button>
+        )}
         <div className="spacer" />
+        <button
+          className="figma-quit-pill"
+          style={{ marginRight: '0.4rem', background: 'rgba(255,255,255,0.08)', color: 'var(--text)' }}
+          onClick={handleToggleSound}
+          title="Toggle sound effects"
+        >
+          {soundOn ? '🔊' : '🔇'}
+        </button>
+        {onShowScoreboard && (
+          <button
+            className="figma-quit-pill"
+            style={{ marginRight: '0.4rem', background: 'rgba(255,255,255,0.08)', color: 'var(--text)' }}
+            onClick={onShowScoreboard}
+          >
+            📊 Board
+          </button>
+        )}
         <button className="figma-quit-pill" onClick={onQuit}>
           ✕ QUIT
         </button>

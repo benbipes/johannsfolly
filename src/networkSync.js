@@ -9,6 +9,7 @@ const BROKERS = [
 const TOPIC_PRESENCE = 'jf/v1/lobby/presence';
 const TOPIC_ROOMS = 'jf/v1/lobby/rooms';
 const TOPIC_ROOM_PREFIX = 'jf/v1/room/';
+const TOPIC_LEADERBOARD = 'jf/v1/leaderboard';
 
 const PRESENCE_TTL_MS = 20000;
 const ROOM_TTL_MS = 20000;
@@ -22,6 +23,7 @@ let reconnectTimer = null;
 const networkUsers = new Map();
 const networkRooms = new Map();
 const roomSubscribers = new Map();
+const leaderboardSubscribers = new Set();
 
 function encodeUtf8(str) {
   return new TextEncoder().encode(str);
@@ -103,6 +105,7 @@ function handleIncomingMessage(bytes) {
     isConnected = true;
     sendSubscribe(TOPIC_PRESENCE);
     sendSubscribe(TOPIC_ROOMS);
+    sendSubscribe(TOPIC_LEADERBOARD);
     sendSubscribe(`${TOPIC_ROOM_PREFIX}+`);
     return;
   }
@@ -143,6 +146,8 @@ function handleIncomingMessage(bytes) {
         } else {
           networkRooms.delete(msg.code);
         }
+      } else if (topic === TOPIC_LEADERBOARD) {
+        leaderboardSubscribers.forEach(cb => cb(msg));
       } else if (topic.startsWith(TOPIC_ROOM_PREFIX)) {
         const roomCode = topic.slice(TOPIC_ROOM_PREFIX.length);
         const callbacks = roomSubscribers.get(roomCode);
@@ -264,4 +269,16 @@ export function subscribeNetworkRoom(roomCode, callback) {
 export function publishNetworkRoomEvent(roomCode, eventObj) {
   if (!roomCode) return;
   sendPublish(`${TOPIC_ROOM_PREFIX}${roomCode}`, JSON.stringify(eventObj));
+}
+
+export function publishNetworkLeaderboard(eventObj) {
+  sendPublish(TOPIC_LEADERBOARD, JSON.stringify(eventObj));
+}
+
+export function subscribeNetworkLeaderboard(callback) {
+  if (typeof callback !== 'function') return () => {};
+  leaderboardSubscribers.add(callback);
+  return () => {
+    leaderboardSubscribers.delete(callback);
+  };
 }

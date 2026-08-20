@@ -1,6 +1,18 @@
+import { useState } from 'react';
 import { TARGET_SEQUENCE, BULL_INDEX } from '../gameLogic.js';
 
-export default function Scoreboard({ game, onClose }) {
+export default function Scoreboard({ game, roomCode, onClose }) {
+  const [copiedCode, setCopiedCode] = useState(false);
+
+  async function handleCopyRoomCode() {
+    if (!roomCode) return;
+    try {
+      await navigator.clipboard.writeText(roomCode);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
+    } catch { /* ignore */ }
+  }
+
   // Sort players by progress (furthest first)
   const sorted = game.players
     .map((p, i) => ({ ...p, originalIndex: i }))
@@ -10,9 +22,18 @@ export default function Scoreboard({ game, onClose }) {
 
   return (
     <div className="screen">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
         <h2>Scoreboard</h2>
         <div className="round-badge">Round {game.round}</div>
+        {roomCode && (
+          <button
+            className="figma-room-pill"
+            onClick={handleCopyRoomCode}
+            title="Click to copy room code"
+          >
+            {copiedCode ? '✓ Copied' : `🔑 Room: ${roomCode}`}
+          </button>
+        )}
         <div className="spacer" />
         {onClose && (
           <button className="btn-secondary" style={{ padding: '0.4rem 0.75rem' }} onClick={onClose}>

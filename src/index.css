@@ -416,6 +416,30 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   letter-spacing: -0.2px;
 }
 
+.figma-room-pill {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--accent);
+  border: 1px solid rgba(255, 215, 0, 0.35);
+  font-weight: 800;
+  font-size: 1rem;
+  padding: 0.55rem 1.15rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.figma-room-pill:hover {
+  background: rgba(255, 215, 0, 0.18);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.figma-room-pill:active {
+  transform: scale(0.96);
+}
+
 .figma-quit-pill {
   background: #ef4444;
   color: #000;

@@ -9,10 +9,11 @@ import ScoringScreen from './components/ScoringScreen.jsx';
 import PlayoffScreen from './components/PlayoffScreen.jsx';
 import LeaderboardView from './components/Leaderboard.jsx';
 
-import { BULL_INDEX, createGame } from './gameLogic.js';
+import { BULL_INDEX, createGame, mergeGameState } from './gameLogic.js';
 import { useGameSync } from './useGameSync.js';
 import { getLoggedInUser, logout, refreshLoggedUserPresence } from './auth.js';
 import { recordGame } from './leaderboard.js';
+import { playSound, playNewRoundSound } from './audio.js';
 
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -74,61 +75,72 @@ export default function App() {
   const { broadcast } = useGameSync(roomCode, useCallback((remoteGame) => {
     if (!remoteGame) return;
 
-    let updatedGame = remoteGame;
-    let needsBroadcast = false;
+    setGame(prevGame => {
+      let mergedGame = mergeGameState(prevGame, remoteGame);
+      let needsBroadcast = false;
 
-    // Late Joiner Logic:
-    // If game is in progress ('scoring') and local user is not in players roster, add them!
-    if (
-      loggedInUser &&
-      remoteGame.view === 'scoring' &&
-      Array.isArray(remoteGame.players) &&
-      !remoteGame.players.some(p => p.name?.trim().toLowerCase() === loggedInUser.trim().toLowerCase())
-    ) {
-      const lateJoiner = {
-        name: loggedInUser,
-        targetIndex: 0,
-        finished: false,
-        finishedRound: null,
-        roundCompleted: (remoteGame.round ?? 1) - 1, // allow immediate scoring in current round
-        lastIsPerfect: false,
-        perfectCount: 0,
-        marks: 0,
-        darts: 0,
-      };
-      updatedGame = {
-        ...remoteGame,
-        players: [...remoteGame.players, lateJoiner],
-      };
-      needsBroadcast = true;
-    }
-
-    setGame(updatedGame);
-    if (updatedGame?.view) {
-      setView(updatedGame.view);
-      if (updatedGame.playoffPlayers) setPlayoffPlayers(updatedGame.playoffPlayers);
-      if (updatedGame.playoffNumber !== undefined) setPlayoffNumber(updatedGame.playoffNumber);
-      if (updatedGame.playoffScores) setPlayoffScores(updatedGame.playoffScores);
-      if (updatedGame.playoffCurrentIdx !== undefined) setPlayoffCurrentIdx(updatedGame.playoffCurrentIdx);
-      if (updatedGame.finalWinners) setFinalWinners(updatedGame.finalWinners);
-      if (updatedGame.finalStats) setFinalStats(updatedGame.finalStats);
-      if (updatedGame.legsWonMap) setLegsWonMap(updatedGame.legsWonMap);
-
-      if (updatedGame.view === 'winner' && updatedGame.finalWinners?.length > 0) {
-        recordGame(
-          updatedGame.players,
-          updatedGame.finalWinners,
-          updatedGame.finalStats?.rounds ?? updatedGame.round ?? 1,
-          updatedGame.finalStats?.marksMap ?? {},
-          updatedGame.finalStats?.dartsMap ?? {},
-          updatedGame.gameId
-        );
+      if (prevGame && mergedGame && mergedGame.round > prevGame.round && mergedGame.view === 'scoring') {
+        playNewRoundSound();
       }
-    }
 
-    if (needsBroadcast) {
-      setTimeout(() => broadcastRef.current?.(updatedGame), 0);
-    }
+      // Late Joiner / Rejoiner Logic:
+      // If game is in progress and local user is logged in:
+      if (loggedInUser && (mergedGame.view === 'scoring' || mergedGame.view === 'scoreboard') && Array.isArray(mergedGame.players)) {
+        const existingIndex = mergedGame.players.findIndex(
+          p => p.name?.trim().toLowerCase() === loggedInUser.trim().toLowerCase()
+        );
+        if (existingIndex < 0) {
+          // New player joining mid-game: start at target 20 (targetIndex: 0) and allow current round play!
+          const newPlayer = {
+            name: loggedInUser,
+            targetIndex: 0, // starts at 20!
+            finished: false,
+            finishedRound: null,
+            roundCompleted: (mergedGame.round ?? 1) - 1, // allow immediate scoring in current round
+            lastIsPerfect: false,
+            perfectInRound: null,
+            perfectCount: 0,
+            marks: 0,
+            darts: 0,
+            legsWon: mergedGame.legsWonMap?.[loggedInUser] || 0,
+          };
+          mergedGame = {
+            ...mergedGame,
+            players: [...mergedGame.players, newPlayer],
+          };
+          needsBroadcast = true;
+        }
+      }
+
+      if (mergedGame?.view) {
+        setView(mergedGame.view);
+        if (mergedGame.playoffPlayers) setPlayoffPlayers(mergedGame.playoffPlayers);
+        if (mergedGame.playoffNumber !== undefined) setPlayoffNumber(mergedGame.playoffNumber);
+        if (mergedGame.playoffScores) setPlayoffScores(mergedGame.playoffScores);
+        if (mergedGame.playoffCurrentIdx !== undefined) setPlayoffCurrentIdx(mergedGame.playoffCurrentIdx);
+        if (mergedGame.finalWinners) setFinalWinners(mergedGame.finalWinners);
+        if (mergedGame.finalStats) setFinalStats(mergedGame.finalStats);
+        if (mergedGame.legsWonMap) setLegsWonMap(mergedGame.legsWonMap);
+
+        if (mergedGame.view === 'winner' && mergedGame.finalWinners?.length > 0) {
+          playSound('win');
+          recordGame(
+            mergedGame.players,
+            mergedGame.finalWinners,
+            mergedGame.finalStats?.rounds ?? mergedGame.round ?? 1,
+            mergedGame.finalStats?.marksMap ?? {},
+            mergedGame.finalStats?.dartsMap ?? {},
+            mergedGame.gameId
+          );
+        }
+      }
+
+      if (needsBroadcast) {
+        setTimeout(() => broadcastRef.current?.(mergedGame), 0);
+      }
+
+      return mergedGame;
+    });
   }, [loggedInUser]));
 
   broadcastRef.current = broadcast;
@@ -221,6 +233,10 @@ export default function App() {
           .map((p, i) => ({ p, i }))
           .filter(({ p }) => p.finished)
           .map(({ i }) => i);
+
+        if (bullPlayers.length === 0) {
+          playNewRoundSound();
+        }
 
         if (bullPlayers.length === 1) {
           const winnerIdx = bullPlayers[0];
@@ -520,6 +536,10 @@ export default function App() {
     );
   }
 
+  if (view === 'scoreboard') {
+    return <Scoreboard game={game} roomCode={roomCode} onClose={() => setView('scoring')} />;
+  }
+
   // scoring view — select active player based on myPlayerName or currentPlayerIndex
   const matchedIdx = myPlayerName
     ? game.players.findIndex(p => p.name?.trim().toLowerCase() === myPlayerName.trim().toLowerCase())
@@ -534,6 +554,7 @@ export default function App() {
       player={activePlayer}
       playerIndex={activeIdx}
       myPlayerName={myPlayerName}
+      roomCode={roomCode}
       onTurnComplete={handleTurnComplete}
       onShowScoreboard={() => setView('scoreboard')}
       onQuit={handleRestart}

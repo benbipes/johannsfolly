@@ -144,16 +144,21 @@ export function useGameSync(roomCode, onGameUpdate) {
       }
     });
 
-    // Pick up any state set before this tab opened
-    const stored = localStorage.getItem(`game:${roomCode}`);
-    if (stored) {
-      try { onUpdateRef.current(JSON.parse(stored)); } catch { /* ignore */ }
-    }
+    // Pick up any state set before this tab opened or updated in background
+    const readStoredState = () => {
+      const stored = localStorage.getItem(`game:${roomCode}`);
+      if (stored) {
+        try { onUpdateRef.current(JSON.parse(stored)); } catch { /* ignore */ }
+      }
+    };
+    readStoredState();
+    const pollId = setInterval(readStoredState, 2000);
 
     return () => {
       channel.close();
       channelRef.current = null;
       unsubscribeNet();
+      clearInterval(pollId);
     };
   }, [roomCode]);
 

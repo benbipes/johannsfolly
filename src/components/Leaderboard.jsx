@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { getLeaderboard, clearLeaderboard } from '../leaderboard.js';
+import { getLeaderboard, clearLeaderboard, requestLeaderboardSync } from '../leaderboard.js';
+import { subscribeNetworkLeaderboard } from '../networkSync.js';
 
 function fmt(n, decimals = 1) {
   return Number.isFinite(n) ? n.toFixed(decimals) : '—';
@@ -21,7 +22,27 @@ export default function Leaderboard({ onClose }) {
   const [entries, setEntries] = useState([]);
 
   useEffect(() => {
-    setEntries(getLeaderboard());
+    const refresh = () => setEntries(getLeaderboard());
+    refresh();
+    requestLeaderboardSync();
+
+    const unsubscribeNet = subscribeNetworkLeaderboard(() => {
+      refresh();
+    });
+
+    let ch = null;
+    try {
+      ch = new BroadcastChannel('jf:leaderboard');
+      ch.onmessage = () => refresh();
+    } catch { /* ignore */ }
+
+    const id = setInterval(refresh, 2000);
+
+    return () => {
+      unsubscribeNet();
+      if (ch) ch.close();
+      clearInterval(id);
+    };
   }, []);
 
   return (
