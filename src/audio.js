@@ -25,6 +25,13 @@ const SOUND_FILES = {
   silverlining: 'audio/silverlining.mp3',
   curse: 'audio/curse.mp3',
   onedartatatime: 'audio/onedartatatime.m4a',
+  mf1: 'audio/mf1.m4a',
+  mf2: 'audio/mf2.m4a',
+  mf3: 'audio/mf3.m4a',
+  mf4: 'audio/mf4.m4a',
+  mf5: 'audio/mf5.m4a',
+  mf6: 'audio/mf6.m4a',
+  mf7: 'audio/mf7.m4a',
 };
 
 const NEW_ROUND_SOUND_PATHS = [
@@ -100,6 +107,9 @@ export function preloadAllMp3s() {
   preloadMp3Buffer('silverlining', 'audio/silverlining.mp3');
   preloadMp3Buffer('curse', 'audio/curse.mp3');
   preloadMp3Buffer('onedartatatime', 'audio/onedartatatime.m4a');
+  ['mf1', 'mf2', 'mf3', 'mf4', 'mf5', 'mf6', 'mf7'].forEach(k => {
+    preloadMp3Buffer(k, `audio/${k}.m4a`);
+  });
 }
 
 export function unlockAudio() {
@@ -218,6 +228,13 @@ export function playSound(name) {
       playSynthSound(name);
     }
   }
+}
+
+export function playRandomMissSwear() {
+  if (!soundEnabled) return;
+  const keys = ['mf1', 'mf2', 'mf3', 'mf4', 'mf5', 'mf6', 'mf7'];
+  const key = keys[Math.floor(Math.random() * keys.length)];
+  playSound(key);
 }
 
 function playSynthSound(name) {

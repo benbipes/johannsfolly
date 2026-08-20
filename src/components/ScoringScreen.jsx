@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { TARGET_SEQUENCE, BULL_INDEX, processDarts } from '../gameLogic.js';
-import { playSound, isSoundEnabled, toggleSound, unlockAudio } from '../audio.js';
+import { playSound, playRandomMissSwear, isSoundEnabled, toggleSound, unlockAudio } from '../audio.js';
 
 export default function ScoringScreen({
   game,
@@ -108,20 +108,32 @@ export default function ScoringScreen({
       const marksScoredInSet = newTargetIndex - simulatedTargetIndex;
       const isOneMark = marksScoredInSet === 1;
 
+      let soundDelayMs = 0;
+
       if (isCurse) {
         playSound('curse');
         specialSoundPlayed = true;
+        soundDelayMs = 3800; // 3.8s duration for curse.mp3
       } else if (isSilverLining) {
         playSound('silverlining');
         specialSoundPlayed = true;
+        soundDelayMs = 3000;
       } else if (isOneMark) {
         playSound('onedartatatime');
         specialSoundPlayed = true;
+        soundDelayMs = 3000;
+      } else if (isAllMiss) {
+        // 3 misses (not a curse throw) — play a random swear audio clip ~60% of the time
+        if (Math.random() < 0.60) {
+          playRandomMissSwear();
+          specialSoundPlayed = true;
+          soundDelayMs = 1600;
+        }
       }
 
       if (!isPerfect) {
         // Submit score for this round
-        onTurnComplete(selectedIdx, newTargetIndex, allTurnDarts, false, perfectSets > 0 || isPerfect, specialSoundPlayed);
+        onTurnComplete(selectedIdx, newTargetIndex, allTurnDarts, false, perfectSets > 0 || isPerfect, soundDelayMs);
       } else {
         // Perfect throw! Immediately continue with next set of 3 bonus darts
         playSound('perfect');

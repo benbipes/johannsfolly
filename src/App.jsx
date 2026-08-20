@@ -181,7 +181,7 @@ export default function App() {
 
 
   // --- Turn complete: called when a player finishes all their darts ---
-  const handleTurnComplete = useCallback((scoringPlayerIdx, newTargetIndex, allDarts, hitBull, isPerfect, specialSoundPlayed = false) => {
+  const handleTurnComplete = useCallback((scoringPlayerIdx, newTargetIndex, allDarts, hitBull, isPerfect, soundDelayMs = 0) => {
     setGame(prev => {
       if (!prev) return prev;
       const targetPlayer = prev.players[scoringPlayerIdx];
@@ -235,8 +235,8 @@ export default function App() {
           .map(({ i }) => i);
 
         if (bullPlayers.length === 0) {
-          if (specialSoundPlayed) {
-            setTimeout(() => playNewRoundSound(), 1800);
+          if (soundDelayMs > 0) {
+            setTimeout(() => playNewRoundSound(), soundDelayMs);
           } else {
             playNewRoundSound();
           }
