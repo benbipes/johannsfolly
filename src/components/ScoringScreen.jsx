@@ -133,7 +133,9 @@ export default function ScoringScreen({
 
       if (!isPerfect) {
         // Submit score for this round
-        onTurnComplete(selectedIdx, newTargetIndex, allTurnDarts, false, perfectSets > 0 || isPerfect, soundDelayMs);
+        // Turn counts as having a perfect throw for the next round only if it contained a perfect set and was NOT a curse
+        const turnWasPerfect = perfectSets > 0 && !isCurse;
+        onTurnComplete(selectedIdx, newTargetIndex, allTurnDarts, false, turnWasPerfect, soundDelayMs);
       } else {
         // Perfect throw! Immediately continue with next set of 3 bonus darts
         playSound('perfect');
