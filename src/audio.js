@@ -23,6 +23,8 @@ const SOUND_FILES = {
   perfect: 'audio/perfect.mp3',
   win: 'audio/win.mp3',
   silverlining: 'audio/silverlining.mp3',
+  curse: 'audio/curse.mp3',
+  onedartatatime: 'audio/onedartatatime.m4a',
 };
 
 const NEW_ROUND_SOUND_PATHS = [
@@ -73,6 +75,8 @@ export async function preloadMp3Buffer(key, relativeUrl) {
     const fullUrl = getAudioUrl(relativeUrl);
     const res = await fetch(fullUrl);
     if (!res.ok) return;
+    const contentType = res.headers.get('content-type');
+    if (contentType && contentType.includes('text/html')) return;
     const arrayBuf = await res.arrayBuffer();
 
     // Support callback & promise syntax for WebKit / Safari
@@ -81,8 +85,8 @@ export async function preloadMp3Buffer(key, relativeUrl) {
         audioBuffers.set(key, decoded);
       }, () => {});
     } else {
-      const decoded = await ctx.decodeAudioData(arrayBuf);
-      audioBuffers.set(key, decoded);
+      const decoded = await ctx.decodeAudioData(arrayBuf).catch(() => null);
+      if (decoded) audioBuffers.set(key, decoded);
     }
   } catch {
     /* ignore fetch/decode errors */
@@ -94,13 +98,8 @@ export function preloadAllMp3s() {
   preloadMp3Buffer('newround2', 'audio/newroundsad.mp3');
   preloadMp3Buffer('newround3', 'audio/newround.mp3');
   preloadMp3Buffer('silverlining', 'audio/silverlining.mp3');
-  preloadMp3Buffer('single', 'audio/single.mp3');
-  preloadMp3Buffer('double', 'audio/double.mp3');
-  preloadMp3Buffer('triple', 'audio/triple.mp3');
-  preloadMp3Buffer('miss', 'audio/miss.mp3');
-  preloadMp3Buffer('bullseye', 'audio/bullseye.mp3');
-  preloadMp3Buffer('perfect', 'audio/perfect.mp3');
-  preloadMp3Buffer('win', 'audio/win.mp3');
+  preloadMp3Buffer('curse', 'audio/curse.mp3');
+  preloadMp3Buffer('onedartatatime', 'audio/onedartatatime.m4a');
 }
 
 export function unlockAudio() {
@@ -153,6 +152,19 @@ export function playNewRoundSound() {
   const key = keys[Math.floor(Math.random() * keys.length)];
   const played = playBuffer(key);
   if (!played) {
+    if (typeof document !== 'undefined') {
+      const el = document.getElementById(`snd-${key}`);
+      if (el) {
+        try {
+          el.currentTime = 0;
+          const p = el.play();
+          if (p !== undefined) {
+            p.catch(() => playSynthSound('newround'));
+          }
+          return;
+        } catch { /* fallback below */ }
+      }
+    }
     const paths = NEW_ROUND_SOUND_PATHS;
     const path = paths[Math.floor(Math.random() * paths.length)];
     const fullUrl = getAudioUrl(path);
@@ -170,6 +182,29 @@ export function playSound(name) {
   unlockAudio();
   const played = playBuffer(name);
   if (!played) {
+    if (typeof document !== 'undefined') {
+      const el = document.getElementById(`snd-${name}`);
+      if (el) {
+        try {
+          el.currentTime = 0;
+          const p = el.play();
+          if (p !== undefined) {
+            p.catch(() => {
+              const relativePath = SOUND_FILES[name];
+              if (relativePath) {
+                const fullUrl = getAudioUrl(relativePath);
+                const audio = new Audio(fullUrl);
+                audio.volume = 0.85;
+                audio.play().catch(() => playSynthSound(name));
+              } else {
+                playSynthSound(name);
+              }
+            });
+          }
+          return;
+        } catch { /* fallback below */ }
+      }
+    }
     const relativePath = SOUND_FILES[name];
     if (relativePath) {
       const fullUrl = getAudioUrl(relativePath);

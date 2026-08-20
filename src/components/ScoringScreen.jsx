@@ -82,7 +82,6 @@ export default function ScoringScreen({
   function handleDart(type) {
     if (setDone || isRoundScored) return;
     unlockAudio();
-    playSound(type);
 
     const newDarts = [...darts, type];
     setDarts(newDarts);
@@ -93,6 +92,8 @@ export default function ScoringScreen({
     );
     const allTurnDarts = [...turnDarts, ...newDarts];
 
+    let specialSoundPlayed = false;
+
     if (hitBull) {
       playSound('bullseye');
       onTurnComplete(selectedIdx, newTargetIndex, allTurnDarts, true, perfectSets > 0 || isPerfect);
@@ -100,22 +101,40 @@ export default function ScoringScreen({
     }
 
     if (newDarts.length === 3) {
+      const isAllMiss = newDarts.every(d => d === 'miss');
+      const hadPerfect = perfectSets > 0 || !!activePlayer?.lastIsPerfect;
+      const isCurse = isAllMiss && hadPerfect;
       const isSilverLining = newDarts[0] === 'miss' && newDarts[1] === 'miss' && newDarts[2] === 'triple';
-      if (isSilverLining) {
+      const marksScoredInSet = newTargetIndex - simulatedTargetIndex;
+      const isOneMark = marksScoredInSet === 1;
+
+      if (isCurse) {
+        playSound('curse');
+        specialSoundPlayed = true;
+      } else if (isSilverLining) {
         playSound('silverlining');
+        specialSoundPlayed = true;
+      } else if (isOneMark) {
+        playSound('onedartatatime');
+        specialSoundPlayed = true;
       }
 
       if (!isPerfect) {
         // Submit score for this round
-        onTurnComplete(selectedIdx, newTargetIndex, allTurnDarts, false, perfectSets > 0 || isPerfect);
+        onTurnComplete(selectedIdx, newTargetIndex, allTurnDarts, false, perfectSets > 0 || isPerfect, specialSoundPlayed);
       } else {
         // Perfect throw! Immediately continue with next set of 3 bonus darts
         playSound('perfect');
+        specialSoundPlayed = true;
         setSimulatedTargetIndex(newTargetIndex);
         setTurnDarts(allTurnDarts);
         setPerfectSets(s => s + 1);
         setDarts([]);
       }
+    }
+
+    if (!specialSoundPlayed) {
+      playSound(type);
     }
   }
 
