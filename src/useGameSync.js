@@ -145,14 +145,20 @@ export function useGameSync(roomCode, onGameUpdate) {
     });
 
     // Pick up any state set before this tab opened or updated in background
-    const readStoredState = () => {
+    // And periodically re-publish heartbeat over network to self-heal any dropped turns across devices
+    const syncHeartbeat = () => {
       const stored = localStorage.getItem(`game:${roomCode}`);
       if (stored) {
-        try { onUpdateRef.current(JSON.parse(stored)); } catch { /* ignore */ }
+        try {
+          const game = JSON.parse(stored);
+          onUpdateRef.current(game);
+          const payload = { type: 'game_state', game, senderId: mySenderIdRef.current };
+          publishNetworkRoomEvent(roomCode, payload);
+        } catch { /* ignore */ }
       }
     };
-    readStoredState();
-    const pollId = setInterval(readStoredState, 2000);
+    syncHeartbeat();
+    const pollId = setInterval(syncHeartbeat, 3000);
 
     return () => {
       channel.close();
@@ -163,13 +169,24 @@ export function useGameSync(roomCode, onGameUpdate) {
   }, [roomCode]);
 
   const broadcast = useCallback((game) => {
-    if (!roomCode) return;
+    if (!roomCode || !game) return;
     localStorage.setItem(`game:${roomCode}`, JSON.stringify(game));
     const payload = { type: 'game_state', game, senderId: mySenderIdRef.current };
     channelRef.current?.postMessage(payload);
     publishNetworkRoomEvent(roomCode, payload);
   }, [roomCode]);
 
-  return { broadcast };
+  const forceSync = useCallback(() => {
+    if (!roomCode) return;
+    const stored = localStorage.getItem(`game:${roomCode}`);
+    if (stored) {
+      try {
+        const game = JSON.parse(stored);
+        broadcast(game);
+      } catch { /* ignore */ }
+    }
+  }, [roomCode, broadcast]);
+
+  return { broadcast, forceSync };
 }
 

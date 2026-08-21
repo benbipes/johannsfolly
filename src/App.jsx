@@ -13,7 +13,7 @@ import { BULL_INDEX, createGame, mergeGameState } from './gameLogic.js';
 import { useGameSync } from './useGameSync.js';
 import { getLoggedInUser, logout, refreshLoggedUserPresence } from './auth.js';
 import { recordGame } from './leaderboard.js';
-import { playNewRoundSound } from './audio.js';
+import { playNewRoundSound, reunlockAllAudio } from './audio.js';
 
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -38,11 +38,27 @@ function advanceGame(game) {
 
 export default function App() {
   const [loggedInUser, setLoggedInUser] = useState(() => getLoggedInUser());
-  const [game, setGame] = useState(null);
-  const [view, setView] = useState('lobby'); // 'lobby' | 'room' | 'scoring' | 'scoreboard' | 'playoff' | 'winner' | 'leaderboard'
-  const [roomCode, setRoomCode] = useState(null);
+  const [roomCode, setRoomCode] = useState(() => {
+    try { return sessionStorage.getItem('jf:active_roomCode') || null; } catch { return null; }
+  });
+  const [myPlayerName, setMyPlayerName] = useState(() => {
+    try { return sessionStorage.getItem('jf:active_playerName') || loggedInUser; } catch { return loggedInUser; }
+  });
+  const [view, setView] = useState(() => {
+    try { return sessionStorage.getItem('jf:active_view') || 'lobby'; } catch { return 'lobby'; }
+  });
+  const [game, setGame] = useState(() => {
+    try {
+      const code = sessionStorage.getItem('jf:active_roomCode');
+      if (code) {
+        const stored = localStorage.getItem(`game:${code}`);
+        if (stored) return JSON.parse(stored);
+      }
+    } catch { /* ignore */ }
+    return null;
+  });
+
   const [isHost, setIsHost] = useState(false);
-  const [myPlayerName, setMyPlayerName] = useState(null); // null = no identity (single-device mode)
   const [playoffPlayers, setPlayoffPlayers] = useState([]);
   const [finalWinners, setFinalWinners] = useState([]);
   const [finalStats, setFinalStats] = useState(null); // { rounds, marksMap, dartsMap, perfectsMap }
@@ -50,6 +66,27 @@ export default function App() {
   const [playoffNumber, setPlayoffNumber] = useState(null);
   const [playoffCurrentIdx, setPlayoffCurrentIdx] = useState(0);
   const [legsWonMap, setLegsWonMap] = useState({});
+
+  // Session persistence for page refresh recovery
+  useEffect(() => {
+    try {
+      if (roomCode) {
+        sessionStorage.setItem('jf:active_roomCode', roomCode);
+      } else {
+        sessionStorage.removeItem('jf:active_roomCode');
+      }
+      if (myPlayerName) {
+        sessionStorage.setItem('jf:active_playerName', myPlayerName);
+      } else {
+        sessionStorage.removeItem('jf:active_playerName');
+      }
+      if (view && view !== 'lobby') {
+        sessionStorage.setItem('jf:active_view', view);
+      } else {
+        sessionStorage.removeItem('jf:active_view');
+      }
+    } catch { /* ignore */ }
+  }, [roomCode, myPlayerName, view]);
 
   useEffect(() => {
     if (!loggedInUser) return;
@@ -72,7 +109,7 @@ export default function App() {
   const broadcastRef = useRef(null);
 
   // Sync game state across tabs/devices in the same room
-  const { broadcast } = useGameSync(roomCode, useCallback((remoteGame) => {
+  const { broadcast, forceSync } = useGameSync(roomCode, useCallback((remoteGame) => {
     if (!remoteGame) return;
 
     setGame(prevGame => {
@@ -161,6 +198,7 @@ export default function App() {
   }
 
   function handleSolo() {
+    reunlockAllAudio();
     playerStatsRef.current = {};
     const newGame = createGame([loggedInUser ?? 'Solo Player']);
     setGame(newGame);
@@ -169,6 +207,7 @@ export default function App() {
 
   // --- Room start ---
   function handleRoomStart(playerNames, keepLegs = false) {
+    reunlockAllAudio();
     const currentLegs = keepLegs ? (game?.legsWonMap || legsWonMap) : {};
     const newGame = createGame(playerNames, currentLegs);
     setGame(newGame);
@@ -560,6 +599,7 @@ export default function App() {
       roomCode={roomCode}
       onTurnComplete={handleTurnComplete}
       onShowScoreboard={() => setView('scoreboard')}
+      onSync={forceSync}
       onQuit={handleRestart}
     />
   );

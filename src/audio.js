@@ -115,7 +115,9 @@ export function preloadAllMp3s() {
 export function unlockAudio() {
   const ctx = getAudioContext();
   if (ctx) {
-    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    if (ctx.state === 'suspended' || ctx.state === 'interrupted') {
+      ctx.resume().catch(() => {});
+    }
     try {
       // Silent buffer trick to unlock Safari / iOS WebKit audio engine
       const buffer = ctx.createBuffer(1, 1, 22050);
@@ -128,10 +130,15 @@ export function unlockAudio() {
   preloadAllMp3s();
 }
 
+export function reunlockAllAudio() {
+  audioBuffers.clear();
+  unlockAudio();
+}
+
 if (typeof window !== 'undefined') {
   const unlockEvents = ['click', 'touchstart', 'touchend', 'pointerdown'];
   unlockEvents.forEach(evt => {
-    window.addEventListener(evt, unlockAudio, { once: true });
+    window.addEventListener(evt, unlockAudio, { passive: true });
   });
   setTimeout(() => unlockAudio(), 100);
 }

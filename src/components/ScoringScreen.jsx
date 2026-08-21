@@ -10,6 +10,7 @@ export default function ScoringScreen({
   roomCode,
   onTurnComplete,
   onShowScoreboard,
+  onSync,
   onQuit,
 }) {
   const [copiedCode, setCopiedCode] = useState(false);
@@ -108,6 +109,9 @@ export default function ScoringScreen({
       const marksScoredInSet = newTargetIndex - simulatedTargetIndex;
       const isOneMark = marksScoredInSet === 1;
 
+      // 3 misses can NEVER be a perfect throw
+      const effectiveIsPerfect = isAllMiss ? false : isPerfect;
+
       let soundDelayMs = 0;
 
       if (isCurse) {
@@ -123,15 +127,13 @@ export default function ScoringScreen({
         specialSoundPlayed = true;
         soundDelayMs = 3000;
       } else if (isAllMiss) {
-        // 3 misses (not a curse throw) — play a random swear audio clip ~60% of the time
-        if (Math.random() < 0.60) {
-          playRandomMissSwear();
-          specialSoundPlayed = true;
-          soundDelayMs = 1600;
-        }
+        // 3 misses (not a curse throw) — ALWAYS play one of the swear audio clips (mf1 - mf7)
+        playRandomMissSwear();
+        specialSoundPlayed = true;
+        soundDelayMs = 1600;
       }
 
-      if (!isPerfect) {
+      if (!effectiveIsPerfect) {
         // Submit score for this round
         // Turn counts as having a perfect throw for the next round only if it contained a perfect set and was NOT a curse
         const turnWasPerfect = perfectSets > 0 && !isCurse;
@@ -181,6 +183,16 @@ export default function ScoringScreen({
           </button>
         )}
         <div className="spacer" />
+        {onSync && (
+          <button
+            className="figma-quit-pill"
+            style={{ marginRight: '0.4rem', background: 'rgba(255,255,255,0.08)', color: 'var(--text)' }}
+            onClick={onSync}
+            title="Force re-sync room state across devices"
+          >
+            🔄 Sync
+          </button>
+        )}
         <button
           className="figma-quit-pill"
           style={{ marginRight: '0.4rem', background: 'rgba(255,255,255,0.08)', color: 'var(--text)' }}
