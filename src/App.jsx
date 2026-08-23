@@ -77,6 +77,20 @@ export default function App() {
     }, 2000);
   }, []);
 
+  // Check URL query params for manual cache reset (?reset=1 or ?clear=1)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('reset') || params.has('clear')) {
+          localStorage.clear();
+          sessionStorage.clear();
+          window.location.href = window.location.origin + window.location.pathname;
+        }
+      } catch { /* ignore */ }
+    }
+  }, []);
+
   // Session persistence for page refresh recovery
   useEffect(() => {
     try {

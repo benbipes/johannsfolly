@@ -229,17 +229,11 @@ export function clearLeaderboard() {
   } catch { /* ignore */ }
 }
 
-/** Clear all leaderboard data AND all local game/room cache keys for a fresh start. */
+/** Clear all leaderboard data AND all local game/room/user cache keys for a fresh start. */
 export function clearAllGameData() {
   try {
     clearLeaderboard();
-    const keysToRemove = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && (key.startsWith('game:') || key.startsWith('room:') || key.startsWith('room-player:') || key.startsWith('jf:'))) {
-        keysToRemove.push(key);
-      }
-    }
-    keysToRemove.forEach(k => localStorage.removeItem(k));
+    localStorage.clear();
+    sessionStorage.clear();
   } catch { /* ignore */ }
 }

@@ -152,13 +152,31 @@ export default function Lobby({ onCreateRoom, onJoinRoom, onSolo, loggedInUser, 
         )}
       </div>
 
-      <button
-        className="btn-secondary"
-        style={{ width: '100%', marginTop: '0.25rem' }}
-        onClick={onShowLeaderboard}
-      >
-        🏆 Leaderboard
-      </button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
+        <button
+          className="btn-secondary"
+          style={{ width: '100%' }}
+          onClick={onShowLeaderboard}
+        >
+          🏆 Leaderboard
+        </button>
+
+        <button
+          className="btn-secondary"
+          style={{ width: '100%', color: 'var(--danger)', borderColor: 'var(--danger)', fontSize: '0.9rem' }}
+          onClick={() => {
+            if (window.confirm('Clear all cached rooms, logged users, saved games, and sound settings to start 100% fresh?')) {
+              try {
+                localStorage.clear();
+                sessionStorage.clear();
+              } catch { /* ignore */ }
+              window.location.reload();
+            }
+          }}
+        >
+          🧹 Clear Cache & Start Fresh
+        </button>
+      </div>
     </div>
   );
 }
