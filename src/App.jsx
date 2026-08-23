@@ -66,6 +66,16 @@ export default function App() {
   const [playoffNumber, setPlayoffNumber] = useState(null);
   const [playoffCurrentIdx, setPlayoffCurrentIdx] = useState(0);
   const [legsWonMap, setLegsWonMap] = useState({});
+  const [splashRound, setSplashRound] = useState(null);
+  const splashTimerRef = useRef(null);
+
+  const triggerRoundSplash = useCallback((roundNum) => {
+    setSplashRound(roundNum);
+    if (splashTimerRef.current) clearTimeout(splashTimerRef.current);
+    splashTimerRef.current = setTimeout(() => {
+      setSplashRound(null);
+    }, 2000);
+  }, []);
 
   // Session persistence for page refresh recovery
   useEffect(() => {
@@ -118,6 +128,7 @@ export default function App() {
 
       if (prevGame && mergedGame && mergedGame.round > prevGame.round && mergedGame.view === 'scoring') {
         playNewRoundSound();
+        triggerRoundSplash(mergedGame.round);
       }
 
       // Late Joiner / Rejoiner Logic:
@@ -273,10 +284,14 @@ export default function App() {
           .map(({ i }) => i);
 
         if (bullPlayers.length === 0) {
-          if (soundDelayMs > 0) {
-            setTimeout(() => playNewRoundSound(), soundDelayMs);
-          } else {
+          const triggerNextRound = () => {
             playNewRoundSound();
+            triggerRoundSplash(newRound);
+          };
+          if (soundDelayMs > 0) {
+            setTimeout(triggerNextRound, soundDelayMs);
+          } else {
+            triggerNextRound();
           }
         }
 
@@ -578,8 +593,22 @@ export default function App() {
     );
   }
 
+  const splashOverlay = splashRound !== null && (
+    <div className="new-round-splash-overlay">
+      <div className="new-round-splash-content">
+        <h1 className="new-round-splash-title">NEW ROUND</h1>
+        <div className="new-round-splash-number">{splashRound}</div>
+      </div>
+    </div>
+  );
+
   if (view === 'scoreboard') {
-    return <Scoreboard game={game} roomCode={roomCode} onClose={() => setView('scoring')} />;
+    return (
+      <>
+        {splashOverlay}
+        <Scoreboard game={game} roomCode={roomCode} onClose={() => setView('scoring')} />
+      </>
+    );
   }
 
   // scoring view — select active player based on myPlayerName or currentPlayerIndex
@@ -590,17 +619,20 @@ export default function App() {
   const activePlayer = game.players[activeIdx] || game.players[0];
 
   return (
-    <ScoringScreen
-      key={`scoring-${activeIdx}-${game.round}`}
-      game={game}
-      player={activePlayer}
-      playerIndex={activeIdx}
-      myPlayerName={myPlayerName}
-      roomCode={roomCode}
-      onTurnComplete={handleTurnComplete}
-      onShowScoreboard={() => setView('scoreboard')}
-      onSync={forceSync}
-      onQuit={handleRestart}
-    />
+    <>
+      {splashOverlay}
+      <ScoringScreen
+        key={`scoring-${activeIdx}-${game.round}`}
+        game={game}
+        player={activePlayer}
+        playerIndex={activeIdx}
+        myPlayerName={myPlayerName}
+        roomCode={roomCode}
+        onTurnComplete={handleTurnComplete}
+        onShowScoreboard={() => setView('scoreboard')}
+        onSync={forceSync}
+        onQuit={handleRestart}
+      />
+    </>
   );
 }

@@ -97,7 +97,12 @@ export default function ScoringScreen({
 
     if (hitBull) {
       playSound('bullseye');
-      onTurnComplete(selectedIdx, newTargetIndex, allTurnDarts, true, perfectSets > 0 || isPerfect);
+      const isTurnPerfect = (perfectSets > 0 || isPerfect) && !newDarts.every(d => d === 'miss');
+      onTurnComplete(selectedIdx, newTargetIndex, allTurnDarts, true, isTurnPerfect);
+      setDarts([]);
+      setTurnDarts([]);
+      setPerfectSets(0);
+      setSimulatedTargetIndex(newTargetIndex);
       return;
     }
 
@@ -138,6 +143,10 @@ export default function ScoringScreen({
         // Turn counts as having a perfect throw for the next round only if it contained a perfect set and was NOT a curse
         const turnWasPerfect = perfectSets > 0 && !isCurse;
         onTurnComplete(selectedIdx, newTargetIndex, allTurnDarts, false, turnWasPerfect, soundDelayMs);
+        setDarts([]);
+        setTurnDarts([]);
+        setPerfectSets(0);
+        setSimulatedTargetIndex(newTargetIndex);
       } else {
         // Perfect throw! Immediately continue with next set of 3 bonus darts
         playSound('perfect');

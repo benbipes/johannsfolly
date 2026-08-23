@@ -678,3 +678,65 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   object-fit: contain;
 }
 
+/* ── New Round Splash Screen Overlay ───────────────────────── */
+.new-round-splash-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: #ffffff;
+  z-index: 999999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  animation: splashFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  user-select: none;
+}
+
+.new-round-splash-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 1.25rem;
+}
+
+.new-round-splash-title {
+  font-size: 2.75rem;
+  font-weight: 900;
+  color: #0f172a;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-family: system-ui, -apple-system, sans-serif;
+  margin: 0;
+}
+
+.new-round-splash-number {
+  font-size: 5rem;
+  font-weight: 900;
+  background: #0f172a;
+  color: #f59e0b;
+  padding: 0.5rem 3rem;
+  border-radius: 24px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.2);
+  line-height: 1.1;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+@keyframes splashFadeIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
