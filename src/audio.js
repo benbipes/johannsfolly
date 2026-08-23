@@ -101,15 +101,12 @@ export async function preloadMp3Buffer(key, relativeUrl) {
 }
 
 export function preloadAllMp3s() {
+  Object.entries(SOUND_FILES).forEach(([key, path]) => {
+    preloadMp3Buffer(key, path);
+  });
   preloadMp3Buffer('newround1', 'audio/newroundexcited.mp3');
   preloadMp3Buffer('newround2', 'audio/newroundsad.mp3');
   preloadMp3Buffer('newround3', 'audio/newround.mp3');
-  preloadMp3Buffer('silverlining', 'audio/silverlining.mp3');
-  preloadMp3Buffer('curse', 'audio/curse.mp3');
-  preloadMp3Buffer('onedartatatime', 'audio/onedartatatime.m4a');
-  ['mf1', 'mf2', 'mf3', 'mf4', 'mf5', 'mf6', 'mf7'].forEach(k => {
-    preloadMp3Buffer(k, `audio/${k}.m4a`);
-  });
 }
 
 export function unlockAudio() {
@@ -172,28 +169,7 @@ export function playNewRoundSound() {
   const key = keys[Math.floor(Math.random() * keys.length)];
   const played = playBuffer(key);
   if (!played) {
-    if (typeof document !== 'undefined') {
-      const el = document.getElementById(`snd-${key}`);
-      if (el) {
-        try {
-          el.currentTime = 0;
-          const p = el.play();
-          if (p !== undefined) {
-            p.catch(() => playSynthSound('newround'));
-          }
-          return;
-        } catch { /* fallback below */ }
-      }
-    }
-    const paths = NEW_ROUND_SOUND_PATHS;
-    const path = paths[Math.floor(Math.random() * paths.length)];
-    const fullUrl = getAudioUrl(path);
-    const audio = new Audio(fullUrl);
-    audio.volume = 0.9;
-    const p = audio.play();
-    if (p !== undefined) {
-      p.catch(() => playSynthSound('newround'));
-    }
+    playSynthSound('newround');
   }
 }
 
@@ -202,41 +178,7 @@ export function playSound(name) {
   unlockAudio();
   const played = playBuffer(name);
   if (!played) {
-    if (typeof document !== 'undefined') {
-      const el = document.getElementById(`snd-${name}`);
-      if (el) {
-        try {
-          el.currentTime = 0;
-          const p = el.play();
-          if (p !== undefined) {
-            p.catch(() => {
-              const relativePath = SOUND_FILES[name];
-              if (relativePath) {
-                const fullUrl = getAudioUrl(relativePath);
-                const audio = new Audio(fullUrl);
-                audio.volume = 0.85;
-                audio.play().catch(() => playSynthSound(name));
-              } else {
-                playSynthSound(name);
-              }
-            });
-          }
-          return;
-        } catch { /* fallback below */ }
-      }
-    }
-    const relativePath = SOUND_FILES[name];
-    if (relativePath) {
-      const fullUrl = getAudioUrl(relativePath);
-      const audio = new Audio(fullUrl);
-      audio.volume = 0.85;
-      const p = audio.play();
-      if (p !== undefined) {
-        p.catch(() => playSynthSound(name));
-      }
-    } else {
-      playSynthSound(name);
-    }
+    playSynthSound(name);
   }
 }
 
