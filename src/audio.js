@@ -69,7 +69,7 @@ function getAudioContext() {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (AudioCtx) globalAudioCtx = new AudioCtx();
   }
-  if (globalAudioCtx && globalAudioCtx.state === 'suspended') {
+  if (globalAudioCtx && (globalAudioCtx.state === 'suspended' || globalAudioCtx.state === 'interrupted')) {
     globalAudioCtx.resume().catch(() => {});
   }
   return globalAudioCtx;
@@ -136,7 +136,7 @@ export function reunlockAllAudio() {
 }
 
 if (typeof window !== 'undefined') {
-  const unlockEvents = ['click', 'touchstart', 'touchend', 'pointerdown'];
+  const unlockEvents = ['click', 'touchstart', 'touchend', 'pointerdown', 'keydown'];
   unlockEvents.forEach(evt => {
     window.addEventListener(evt, unlockAudio, { passive: true });
   });
@@ -146,6 +146,9 @@ if (typeof window !== 'undefined') {
 export function playBuffer(key) {
   const ctx = getAudioContext();
   if (!ctx) return false;
+  if (ctx.state === 'suspended' || ctx.state === 'interrupted') {
+    ctx.resume().catch(() => {});
+  }
   const buffer = audioBuffers.get(key);
   if (!buffer) return false;
   try {
