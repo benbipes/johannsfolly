@@ -179,7 +179,7 @@ export default function ScoringScreen({
 
   return (
     <div className="screen figma-scoring-screen">
-      {/* Top Bar: Round Badge on Left, Room Code in Center, Quit Pill on Right */}
+      {/* Top Bar: Round Badge on Left, Room Code in Center (buttons moved to bottom text links) */}
       <div className="figma-header-bar">
         <div className="figma-round-pill">Round {game.round}</div>
         {roomCode && (
@@ -191,37 +191,6 @@ export default function ScoringScreen({
             {copiedCode ? '✓ Copied' : `🔑 Room: ${roomCode}`}
           </button>
         )}
-        <div className="spacer" />
-        {onSync && (
-          <button
-            className="figma-quit-pill"
-            style={{ marginRight: '0.4rem', background: 'rgba(255,255,255,0.08)', color: 'var(--text)' }}
-            onClick={onSync}
-            title="Force re-sync room state across devices"
-          >
-            🔄 Sync
-          </button>
-        )}
-        <button
-          className="figma-quit-pill"
-          style={{ marginRight: '0.4rem', background: 'rgba(255,255,255,0.08)', color: 'var(--text)' }}
-          onClick={handleToggleSound}
-          title="Toggle sound effects"
-        >
-          {soundOn ? '🔊' : '🔇'}
-        </button>
-        {onShowScoreboard && (
-          <button
-            className="figma-quit-pill"
-            style={{ marginRight: '0.4rem', background: 'rgba(255,255,255,0.08)', color: 'var(--text)' }}
-            onClick={onShowScoreboard}
-          >
-            📊 Board
-          </button>
-        )}
-        <button className="figma-quit-pill" onClick={onQuit}>
-          ✕ QUIT
-        </button>
       </div>
 
       {/* Player Tabs — for switching players on shared device */}
@@ -365,6 +334,46 @@ export default function ScoringScreen({
             );
           })}
         </div>
+      </div>
+
+      {/* Bottom Text Links: Sync, Sound, Board, Quit */}
+      <div className="scoring-bottom-links">
+        {onSync && (
+          <button
+            type="button"
+            className="text-link-action"
+            onClick={onSync}
+            title="Force re-sync room state across devices"
+          >
+            🔄 Sync
+          </button>
+        )}
+        <button
+          type="button"
+          className="text-link-action"
+          onClick={handleToggleSound}
+          title="Toggle sound effects"
+        >
+          {soundOn ? '🔊 Sound: On' : '🔇 Sound: Off'}
+        </button>
+        {onShowScoreboard && (
+          <button
+            type="button"
+            className="text-link-action"
+            onClick={onShowScoreboard}
+            title="View Scoreboard"
+          >
+            📊 Board
+          </button>
+        )}
+        <button
+          type="button"
+          className="text-link-action text-link-danger"
+          onClick={onQuit}
+          title="Quit Game"
+        >
+          ✕ Quit
+        </button>
       </div>
 
       {/* Prominent Figma Brand Logo Footer */}

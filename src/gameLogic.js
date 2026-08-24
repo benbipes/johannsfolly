@@ -165,8 +165,8 @@ export function mergeGameState(localGame, remoteGame) {
   }
 
   const legsWonMap = {
-    ...(remoteGame.legsWonMap || {}),
-    ...(localGame.legsWonMap || {}),
+    ...remoteGame.legsWonMap,
+    ...localGame.legsWonMap,
   };
 
   return {

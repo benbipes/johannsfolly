@@ -9,9 +9,9 @@ import ScoringScreen from './components/ScoringScreen.jsx';
 import PlayoffScreen from './components/PlayoffScreen.jsx';
 import LeaderboardView from './components/Leaderboard.jsx';
 
-import { BULL_INDEX, createGame, mergeGameState } from './gameLogic.js';
+import { createGame, mergeGameState } from './gameLogic.js';
 import { useGameSync } from './useGameSync.js';
-import { getLoggedInUser, logout, refreshLoggedUserPresence } from './auth.js';
+import { getLoggedInUser, logout, deleteAccount, refreshLoggedUserPresence } from './auth.js';
 import { recordGame } from './leaderboard.js';
 import { playNewRoundSound, reunlockAllAudio } from './audio.js';
 
@@ -24,16 +24,6 @@ function generateRoomCode() {
 
 function choosePlayoffNumber() {
   return Math.floor(Math.random() * 20) + 1;
-}
-
-// Advance currentPlayerIndex to next player, wrapping around and bumping round.
-function advanceGame(game) {
-  const next = (game.currentPlayerIndex + 1) % game.players.length;
-  return {
-    ...game,
-    currentPlayerIndex: next,
-    round: next === 0 ? game.round + 1 : game.round,
-  };
 }
 
 export default function App() {
@@ -311,7 +301,7 @@ export default function App() {
 
         if (bullPlayers.length === 1) {
           const winnerIdx = bullPlayers[0];
-          const nextLegsWonMap = { ...(prev.legsWonMap || {}) };
+          const nextLegsWonMap = { ...prev.legsWonMap };
           bullPlayers.forEach(i => {
             const wName = players[i].name;
             nextLegsWonMap[wName] = (nextLegsWonMap[wName] || 0) + 1;
@@ -480,8 +470,17 @@ export default function App() {
   if (view === 'lobby') {
     return (
       <Lobby
-        userName={loggedInUser}
-        onLogout={logout}
+        loggedInUser={loggedInUser}
+        onLogout={() => {
+          logout();
+          setLoggedInUser(null);
+          setMyPlayerName(null);
+        }}
+        onDeleteAccount={() => {
+          deleteAccount();
+          setLoggedInUser(null);
+          setMyPlayerName(null);
+        }}
         onCreateRoom={handleCreateRoom}
         onJoinRoom={handleJoinRoom}
         onSolo={handleSolo}
@@ -505,11 +504,7 @@ export default function App() {
   if (view === 'winner') {
     const winnerNames = finalWinners.map(i => game.players[i]?.name).filter(Boolean);
     const isPlayoff = Object.keys(playoffScores).length > 0;
-    const winnerName = winnerNames[0] ?? 'Winner';
     const rounds = finalStats?.rounds ?? game.round;
-    const winnerMarks = finalStats?.marksMap?.[winnerName] ?? BULL_INDEX;
-    const winnerPerfects = finalStats?.perfectsMap?.[winnerName] ?? 0;
-    const mpr = rounds > 0 ? (winnerMarks / rounds).toFixed(2) : '—';
     return (
       <div className="screen">
         <div className="winner-screen">

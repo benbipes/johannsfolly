@@ -1,48 +1,54 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { register, login } from '../auth.js';
 
 export default function AuthScreen({ onAuth }) {
   const [mode, setMode] = useState('login'); // 'login' | 'register'
-  const [username, setUsername] = useState('');
-  const [pin, setPin] = useState(['', '', '', '']);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const pinRefs = [useRef(null), useRef(null), useRef(null), useRef(null)];
 
-  function handlePinChange(i, val) {
-    const digit = val.replace(/\D/g, '').slice(-1);
-    const next = pin.map((d, idx) => (idx === i ? digit : d));
-    setPin(next);
+  function handleSubmit(e) {
+    if (e) e.preventDefault();
     setError('');
-    if (digit && i < 3) pinRefs[i + 1].current?.focus();
-    if (!digit && i > 0) pinRefs[i - 1].current?.focus();
-  }
 
-  function handlePinKeyDown(i, e) {
-    if (e.key === 'Backspace' && !pin[i] && i > 0) {
-      pinRefs[i - 1].current?.focus();
-    }
-  }
-
-  function handleSubmit() {
-    const pinStr = pin.join('');
-    const result = mode === 'register'
-      ? register(username, pinStr)
-      : login(username, pinStr);
-
-    if (result.ok) {
-      onAuth(username.trim());
+    if (mode === 'register') {
+      if (!displayName.trim()) {
+        setError('Please enter a display name for the scoreboard.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError('Passwords do not match.');
+        return;
+      }
+      const result = register(email, password, displayName);
+      if (result.ok) {
+        onAuth(result.user.displayName);
+      } else {
+        setError(result.error);
+      }
     } else {
-      setError(result.error);
+      const result = login(email, password);
+      if (result.ok) {
+        onAuth(result.user.displayName);
+      } else {
+        setError(result.error);
+      }
     }
   }
 
   function switchMode() {
     setMode(m => (m === 'login' ? 'register' : 'login'));
     setError('');
-    setPin(['', '', '', '']);
+    setPassword('');
+    setConfirmPassword('');
   }
 
-  const pinFilled = pin.every(d => d !== '');
+  const isFormValid = mode === 'register'
+    ? email.trim() && displayName.trim() && password.length >= 6 && confirmPassword.length >= 6
+    : email.trim() && password.length > 0;
 
   return (
     <div className="screen">
@@ -52,58 +58,108 @@ export default function AuthScreen({ onAuth }) {
 
       <div className="card">
         <p className="section-title" style={{ marginBottom: '0.75rem' }}>
-          {mode === 'login' ? 'Login' : 'Create Account'}
+          {mode === 'login' ? 'Login with Email' : 'Create Account'}
         </p>
 
-        <div className="player-list" style={{ marginBottom: '0.75rem' }}>
-          <div className="player-row">
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {mode === 'register' && (
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>
+                Player Display Name
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="e.g. Johann or DartMaster"
+                value={displayName}
+                onChange={e => { setDisplayName(e.target.value); setError(''); }}
+                maxLength={20}
+                autoCapitalize="words"
+                autoComplete="name"
+                required
+              />
+            </div>
+          )}
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>
+              Email Address
+            </label>
             <input
-              type="text"
-              placeholder="Username"
-              value={username}
-              onChange={e => { setUsername(e.target.value); setError(''); }}
-              maxLength={20}
-              autoCapitalize="words"
-              autoComplete="username"
+              type="email"
+              className="form-input"
+              placeholder="name@example.com"
+              value={email}
+              onChange={e => { setEmail(e.target.value); setError(''); }}
+              autoCapitalize="none"
+              autoCorrect="off"
+              autoComplete="email"
+              inputMode="email"
+              required
             />
           </div>
-        </div>
 
-        <p className="section-title" style={{ marginBottom: '0.5rem' }}>4-Digit PIN</p>
-        <div className="pin-row" style={{ marginBottom: '0.75rem' }}>
-          {pin.map((d, i) => (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+              <label style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+                Password {mode === 'register' ? '(min 6 chars)' : ''}
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowPassword(s => !s)}
+                style={{ background: 'transparent', color: 'var(--muted)', padding: 0, fontSize: '0.75rem', textDecoration: 'underline' }}
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
             <input
-              key={i}
-              ref={pinRefs[i]}
-              type="password"
-              inputMode="numeric"
-              maxLength={1}
-              value={d}
-              onChange={e => handlePinChange(i, e.target.value)}
-              onKeyDown={e => handlePinKeyDown(i, e)}
-              className="pin-digit"
-              autoComplete="current-password"
+              type={showPassword ? 'text' : 'password'}
+              className="form-input"
+              placeholder="••••••••"
+              value={password}
+              onChange={e => { setPassword(e.target.value); setError(''); }}
+              autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+              required
             />
-          ))}
-        </div>
+          </div>
 
-        {error && (
-          <p style={{ color: 'var(--danger)', fontSize: '0.85rem', marginBottom: '0.5rem' }}>
-            {error}
-          </p>
-        )}
+          {mode === 'register' && (
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>
+                Confirm Password
+              </label>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                className="form-input"
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={e => { setConfirmPassword(e.target.value); setError(''); }}
+                autoComplete="new-password"
+                required
+              />
+            </div>
+          )}
+
+          {error && (
+            <p style={{ color: 'var(--danger)', fontSize: '0.85rem', margin: '0.25rem 0' }}>
+              {error}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            className="btn-primary"
+            style={{ marginTop: '0.5rem' }}
+            disabled={!isFormValid}
+          >
+            {mode === 'login' ? '🔑 Login' : '✅ Create Account'}
+          </button>
+        </form>
 
         <button
-          className="btn-primary"
-          onClick={handleSubmit}
-          disabled={!username.trim() || !pinFilled}
-        >
-          {mode === 'login' ? '🔑 Login' : '✅ Register'}
-        </button>
-
-        <button
+          type="button"
           className="btn-secondary"
-          style={{ width: '100%', marginTop: '0.5rem' }}
+          style={{ width: '100%', marginTop: '0.75rem' }}
           onClick={switchMode}
         >
           {mode === 'login' ? "Don't have an account? Register" : 'Already have an account? Login'}
@@ -112,3 +168,4 @@ export default function AuthScreen({ onAuth }) {
     </div>
   );
 }
+

@@ -59,7 +59,6 @@ export function mergeLeaderboardData(remoteData) {
     const remoteGames = remoteStats.games || [];
 
     remoteGames.forEach(g => {
-      const gId = g.gameId || `${name}_${g.date}_${g.rounds}`;
       const exists = localPlayer.games.some(lg => (lg.gameId && lg.gameId === g.gameId) || (lg.date === g.date && lg.rounds === g.rounds));
       if (!exists) {
         localPlayer.games.push(g);

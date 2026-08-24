@@ -34,12 +34,6 @@ const SOUND_FILES = {
   mf7: 'audio/mf7.m4a',
 };
 
-const NEW_ROUND_SOUND_PATHS = [
-  'audio/newroundexcited.mp3',
-  'audio/newroundsad.mp3',
-  'audio/newround.mp3',
-];
-
 let soundEnabled = true;
 
 try {
