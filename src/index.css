@@ -892,5 +892,151 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   padding: 0 0.75rem;
 }
 
+/* ── Multiplatform & Landscape Support (iPhone & iPad) ─────── */
+
+.scoring-main-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  width: 100%;
+}
+
+.scoring-turn-column,
+.scoring-standings-column {
+  width: 100%;
+}
+
+.lobby-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+/* Tablet & iPad Portrait / Large Screens */
+@media (min-width: 768px) {
+  .screen {
+    max-width: 840px;
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+
+  .lobby-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.15rem;
+  }
+
+  .lobby-span-full {
+    grid-column: 1 / -1;
+  }
+
+  .scoring-main-body {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  .figma-score-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Horizontal / Landscape Orientation (iPhone & iPad) */
+@media (orientation: landscape) {
+  :root {
+    --sat: max(env(safe-area-inset-top, 0px), 10px);
+    --sar: max(env(safe-area-inset-right, 0px), 32px);
+    --sab: max(env(safe-area-inset-bottom, 0px), 16px);
+    --sal: max(env(safe-area-inset-left, 0px), 32px);
+  }
+
+  .screen {
+    max-width: 980px;
+    padding: calc(var(--sat) + 0.25rem) var(--sar) calc(var(--sab) + 0.25rem) var(--sal);
+    gap: 0.65rem;
+  }
+
+  .setup-header {
+    padding: 0.2rem 0;
+  }
+
+  .app-logo {
+    max-width: 220px;
+  }
+
+  .scoring-main-body {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 1rem;
+    align-items: start;
+  }
+
+  .figma-turn-section {
+    margin: 0;
+  }
+
+  .figma-turn-title {
+    font-size: 1.05rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .figma-hero-target {
+    font-size: 2.2rem;
+    padding: 0.6rem 0.85rem;
+    border-radius: 12px;
+  }
+
+  .figma-dart-card {
+    padding: 0.35rem 0.6rem;
+    min-height: 54px;
+  }
+
+  .figma-score-grid-wrap {
+    margin-top: 0.4rem;
+  }
+
+  .figma-score-grid {
+    gap: 0.45rem;
+  }
+
+  .figma-score-btn {
+    padding: 0.65rem 0.5rem;
+    font-size: 1.05rem;
+  }
+
+  .figma-standings-card {
+    padding: 0.75rem 1rem;
+  }
+
+  .figma-standings-list {
+    max-height: 240px;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+  }
+
+  .figma-standings-row {
+    padding: 0.45rem 0.6rem;
+    font-size: 0.95rem;
+  }
+
+  .scoring-bottom-links {
+    margin-top: 0.25rem;
+    padding: 0.2rem 0;
+    gap: 1.25rem;
+  }
+
+  .lobby-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.85rem;
+  }
+
+  .lobby-span-full {
+    grid-column: 1 / -1;
+  }
+}
+
 
 

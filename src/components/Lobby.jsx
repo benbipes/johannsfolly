@@ -171,84 +171,86 @@ export default function Lobby({
         </div>
       )}
 
-      <div className="card">
-        <p className="section-title" style={{ marginBottom: '0.75rem' }}>Logged Users</p>
-        {loggedUsers.length > 0 ? (
-          <div className="player-list">
-            {loggedUsers.map((name) => (
-              <div className="player-row" key={name} style={{ opacity: 0.9 }}>
-                <span style={{ flex: 1, padding: '0.4rem 0.5rem', color: 'var(--accent)' }}>
-                  👤 {name}
-                </span>
-                {name === currentUser && (
-                  <span style={{ fontSize: '0.75rem', color: 'var(--muted)', paddingLeft: '0.25rem', whiteSpace: 'nowrap' }}>
-                    you
+      <div className="lobby-grid">
+        <div className="card">
+          <p className="section-title" style={{ marginBottom: '0.75rem' }}>Logged Users</p>
+          {loggedUsers.length > 0 ? (
+            <div className="player-list">
+              {loggedUsers.map((name) => (
+                <div className="player-row" key={name} style={{ opacity: 0.9 }}>
+                  <span style={{ flex: 1, padding: '0.4rem 0.5rem', color: 'var(--accent)' }}>
+                    👤 {name}
                   </span>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>No logged users found.</p>
-        )}
-      </div>
-
-      <div className="card">
-        <p className="section-title" style={{ marginBottom: '0.75rem' }}>Create a Room</p>
-        {error && <p style={{ color: 'var(--danger)', fontSize: '0.85rem', marginBottom: '0.5rem' }}>{error}</p>}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <button className="btn-primary" onClick={handleCreate}>
-            🎯 Create Room
-          </button>
-          <button className="btn-secondary" style={{ width: '100%' }} onClick={onSolo}>
-            🎮 Play Solo
-          </button>
-        </div>
-      </div>
-
-      <div className="card">
-        <p className="section-title" style={{ marginBottom: '0.75rem' }}>Join a Room</p>
-        <div className="player-list" style={{ marginBottom: '0.5rem' }}>
-          <div className="player-row">
-            <input
-              type="text"
-              placeholder="Room code"
-              value={joinCode}
-              onChange={e => { setJoinCode(e.target.value.toUpperCase()); setJoinError(''); }}
-              maxLength={4}
-              style={{ letterSpacing: '0.15em', textTransform: 'uppercase' }}
-            />
-          </div>
-        </div>
-        {joinError && <p style={{ color: 'var(--danger)', fontSize: '0.85rem', marginBottom: '0.5rem' }}>{joinError}</p>}
-        <button
-          className="btn-secondary"
-          style={{ width: '100%' }}
-          onClick={handleJoin}
-          disabled={joinCode.trim().length === 0}
-        >
-          Join Room
-        </button>
-
-        {availableRooms.length > 0 && (
-          <>
-            <p className="section-title" style={{ margin: '0.75rem 0 0.5rem' }}>
-              Available Rooms
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {availableRooms.map(room => (
-                <button
-                  key={room.code}
-                  className="btn-secondary"
-                  style={{ width: '100%', letterSpacing: '0.1em' }}
-                  onClick={() => handleJoinRoom(room.code)}
-                >
-                  🎯 Room <strong>{room.code}</strong>
-                </button>
+                  {name === currentUser && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--muted)', paddingLeft: '0.25rem', whiteSpace: 'nowrap' }}>
+                      you
+                    </span>
+                  )}
+                </div>
               ))}
             </div>
-          </>
-        )}
+          ) : (
+            <p style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>No logged users found.</p>
+          )}
+        </div>
+
+        <div className="card">
+          <p className="section-title" style={{ marginBottom: '0.75rem' }}>Create a Room</p>
+          {error && <p style={{ color: 'var(--danger)', fontSize: '0.85rem', marginBottom: '0.5rem' }}>{error}</p>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <button className="btn-primary" onClick={handleCreate}>
+              🎯 Create Room
+            </button>
+            <button className="btn-secondary" style={{ width: '100%' }} onClick={onSolo}>
+              🎮 Play Solo
+            </button>
+          </div>
+        </div>
+
+        <div className="card lobby-span-full">
+          <p className="section-title" style={{ marginBottom: '0.75rem' }}>Join a Room</p>
+          <div className="player-list" style={{ marginBottom: '0.5rem' }}>
+            <div className="player-row">
+              <input
+                type="text"
+                placeholder="Room code"
+                value={joinCode}
+                onChange={e => { setJoinCode(e.target.value.toUpperCase()); setJoinError(''); }}
+                maxLength={4}
+                style={{ letterSpacing: '0.15em', textTransform: 'uppercase' }}
+              />
+            </div>
+          </div>
+          {joinError && <p style={{ color: 'var(--danger)', fontSize: '0.85rem', marginBottom: '0.5rem' }}>{joinError}</p>}
+          <button
+            className="btn-secondary"
+            style={{ width: '100%' }}
+            onClick={handleJoin}
+            disabled={joinCode.trim().length === 0}
+          >
+            Join Room
+          </button>
+
+          {availableRooms.length > 0 && (
+            <>
+              <p className="section-title" style={{ margin: '0.75rem 0 0.5rem' }}>
+                Available Rooms
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {availableRooms.map(room => (
+                  <button
+                    key={room.code}
+                    className="btn-secondary"
+                    style={{ width: '100%', letterSpacing: '0.1em' }}
+                    onClick={() => handleJoinRoom(room.code)}
+                  >
+                    🎯 Room <strong>{room.code}</strong>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
