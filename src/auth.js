@@ -160,6 +160,39 @@ export function login(email, password) {
   return { ok: true, user: { email: account.email, displayName: account.displayName } };
 }
 
+/**
+ * Login or Register with a third-party OAuth provider (Apple or Google).
+ * Returns { ok: true, user: { email, displayName, provider } } or { ok: false, error: string }.
+ */
+export function loginWithOAuth(provider, { email, displayName, id }) {
+  const normEmail = normalizeEmail(email) || `${provider.toLowerCase()}_${id || Math.random().toString(36).slice(2, 8)}@johannsfolly.com`;
+  const name = displayName?.trim() || (provider === 'apple' ? 'Apple Player' : 'Google Player');
+
+  const accounts = loadAccounts();
+  let account = accounts[normEmail];
+
+  if (!account) {
+    account = {
+      email: normEmail,
+      displayName: name,
+      provider: provider.toLowerCase(),
+      createdAt: Date.now(),
+    };
+    accounts[normEmail] = account;
+    saveAccounts(accounts);
+  } else if (displayName && account.displayName !== displayName) {
+    account.displayName = displayName;
+    account.provider = provider.toLowerCase();
+    accounts[normEmail] = account;
+    saveAccounts(accounts);
+  }
+
+  setSession(account);
+  refreshLoggedUserPresence(account.displayName);
+
+  return { ok: true, user: { email: account.email, displayName: account.displayName, provider: account.provider } };
+}
+
 function setSession(account) {
   const data = JSON.stringify({ email: account.email, displayName: account.displayName });
   try {

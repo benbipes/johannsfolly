@@ -808,4 +808,71 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   color: var(--danger);
 }
 
+/* ── Social Login Buttons (Apple & Google) ─────────────────── */
+.social-auth-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-bottom: 0.75rem;
+}
+
+.btn-apple {
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid #475569;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  padding: 0.8rem 1rem;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.btn-apple:hover {
+  opacity: 0.92;
+}
+
+.btn-google {
+  background: #ffffff;
+  color: #1f1f1f;
+  border: 1px solid #dadce0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  padding: 0.8rem 1rem;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.btn-google:hover {
+  opacity: 0.95;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0.5rem 0 0.85rem;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--border);
+}
+.auth-divider span {
+  padding: 0 0.75rem;
+}
+
+
 
