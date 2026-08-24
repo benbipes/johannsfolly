@@ -175,20 +175,21 @@ export default function ScoringScreen({
     .map((p, i) => ({ ...p, originalIndex: i }))
     .sort((a, b) => b.targetIndex - a.targetIndex);
 
-  const submittedCount = game.players.filter(p => p.finished || (p.roundCompleted ?? 0) >= game.round).length;
-
   return (
     <div className="screen figma-scoring-screen">
-      {/* Top Bar: Round Badge on Left, Room Code in Center (buttons moved to bottom text links) */}
+      {/* Top Bar: Brand Logo + Round Badge on Left, Room Code on Right */}
       <div className="figma-header-bar">
-        <div className="figma-round-pill">Round {game.round}</div>
+        <div className="figma-header-left">
+          <img src="/logo.png" alt="Johann's Folly" className="figma-header-logo" />
+          <div className="figma-round-pill">Round {game.round}</div>
+        </div>
         {roomCode && (
           <button
             className="figma-room-pill"
             onClick={handleCopyRoomCode}
             title="Click to copy room code"
           >
-            {copiedCode ? '✓ Copied' : `🔑 Room: ${roomCode}`}
+            {copiedCode ? '✓ Copied' : `🔑 ${roomCode}`}
           </button>
         )}
       </div>
@@ -374,11 +375,6 @@ export default function ScoringScreen({
         >
           ✕ Quit
         </button>
-      </div>
-
-      {/* Prominent Figma Brand Logo Footer */}
-      <div className="figma-brand-footer">
-        <img src="/logo.png" alt="Johann's Folly" className="figma-brand-logo" />
       </div>
     </div>
   );

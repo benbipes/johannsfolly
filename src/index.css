@@ -411,17 +411,35 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.65rem;
   padding: 0.25rem 0;
+  width: 100%;
+}
+
+.figma-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.figma-header-logo {
+  height: 34px;
+  max-width: 130px;
+  width: auto;
+  object-fit: contain;
+  display: block;
 }
 
 .figma-round-pill {
   background: var(--accent);
   color: #000;
   font-weight: 900;
-  font-size: 1.15rem;
-  padding: 0.55rem 1.4rem;
+  font-size: 1.05rem;
+  padding: 0.45rem 1.1rem;
   border-radius: 9999px;
   letter-spacing: -0.2px;
+  white-space: nowrap;
 }
 
 .figma-room-pill {
