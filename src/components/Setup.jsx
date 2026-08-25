@@ -43,6 +43,8 @@ export default function Setup({ onStart, solo = false, initialNames = null }) {
                 onChange={e => updateName(i, e.target.value)}
                 maxLength={20}
                 autoCapitalize="words"
+                autoCorrect="off"
+                spellCheck={false}
               />
               {names.length > MIN_PLAYERS && (
                 <button className="remove-btn" onClick={() => removePlayer(i)} aria-label="Remove">

@@ -346,42 +346,6 @@ export function login(identifier, password) {
   return { ok: true, user: { email: account.email, displayName: account.displayName } };
 }
 
-/**
- * Login or Register with a third-party OAuth provider (Apple or Google).
- * Returns { ok: true, user: { email, displayName, provider } } or { ok: false, error: string }.
- */
-export function loginWithOAuth(provider, { email, displayName, id }) {
-  const normEmail = normalizeEmail(email) || `${provider.toLowerCase()}_${id || Math.random().toString(36).slice(2, 8)}@johannsfolly.com`;
-  const name = displayName?.trim() || (provider === 'apple' ? 'Apple Player' : 'Google Player');
-
-  const accounts = loadAccounts();
-  let account = findAccount(normEmail, accounts);
-  const now = Date.now();
-
-  if (!account) {
-    account = {
-      email: normEmail,
-      displayName: name,
-      provider: provider.toLowerCase(),
-      createdAt: now,
-      updatedAt: now,
-    };
-    accounts[normEmail] = account;
-    saveAccounts(accounts);
-  } else if (displayName && account.displayName !== displayName) {
-    account.displayName = displayName;
-    account.provider = provider.toLowerCase();
-    account.updatedAt = now;
-    accounts[normEmail] = account;
-    saveAccounts(accounts);
-  }
-
-  setSession(account);
-  refreshLoggedUserPresence(account.displayName);
-
-  return { ok: true, user: { email: account.email, displayName: account.displayName, provider: account.provider } };
-}
-
 const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 /**

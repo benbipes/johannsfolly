@@ -368,6 +368,8 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
               onChange={e => updateName(0, e.target.value)}
               maxLength={20}
               autoCapitalize="words"
+              autoCorrect="off"
+              spellCheck={false}
             />
           </div>
           {/* Joined players — read-only */}

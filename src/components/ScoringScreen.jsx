@@ -168,7 +168,7 @@ export default function ScoringScreen({
     setDarts(prev => prev.slice(0, -1));
   }
 
-  const roundsCount = Math.max(game.round, 1);
+  const submittedCount = game.players.filter(p => p.finished || (p.roundCompleted ?? 0) >= game.round).length;
 
   // Sort players by progress for mini standings
   const sortedPlayers = game.players
@@ -308,7 +308,10 @@ export default function ScoringScreen({
                 const atBull = p.targetIndex === BULL_INDEX;
                 const target = TARGET_SEQUENCE[p.targetIndex];
                 const marks = p.marks ?? p.targetIndex ?? 0;
-                const mpr = (marks / roundsCount).toFixed(1);
+                const pRounds = p.finished
+                  ? (p.finishedRound ?? Math.max(p.roundCompleted ?? 0, 1))
+                  : Math.max(p.roundCompleted ?? 0, (p.targetIndex > 0 ? 1 : 0));
+                const mpr = pRounds > 0 ? (marks / pRounds).toFixed(1) : (marks > 0 ? marks.toFixed(1) : '0.0');
                 const isPerfect = p.perfectInRound === game.round || (p.lastIsPerfect && (p.roundCompleted ?? 0) === game.round);
                 const hasScoredThisRound = (p.roundCompleted ?? 0) >= game.round;
 

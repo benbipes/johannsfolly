@@ -160,13 +160,13 @@ export function recordGame(players, winnerIndices, totalRounds, marksPerPlayer, 
     const darts = dartsPerPlayer?.[name] ?? 0;
     const perfects = player.perfectCount ?? 0;
 
-    if (isWinner) data.players[name].wins += 1;
+    const pRounds = player.finished ? (player.finishedRound ?? totalRounds) : totalRounds;
 
     data.players[name].games.push({
       gameId: gId,
       date,
       won: isWinner,
-      rounds: totalRounds,
+      rounds: pRounds,
       totalDarts: darts,
       totalMarks: marks,
       totalPerfects: perfects,

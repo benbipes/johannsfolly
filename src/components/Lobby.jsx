@@ -217,6 +217,9 @@ export default function Lobby({
                 value={joinCode}
                 onChange={e => { setJoinCode(e.target.value.toUpperCase()); setJoinError(''); }}
                 maxLength={4}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 style={{ letterSpacing: '0.15em', textTransform: 'uppercase' }}
               />
             </div>

@@ -18,8 +18,6 @@ export default function Scoreboard({ game, roomCode, onClose }) {
     .map((p, i) => ({ ...p, originalIndex: i }))
     .sort((a, b) => b.targetIndex - a.targetIndex);
 
-  const rounds = Math.max(game.round, 1);
-
   return (
     <div className="screen">
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -49,7 +47,10 @@ export default function Scoreboard({ game, roomCode, onClose }) {
           const target = TARGET_SEQUENCE[player.targetIndex];
           const progress = player.targetIndex / BULL_INDEX;
           const marks = player.marks ?? player.targetIndex ?? 0;
-          const mpr = (marks / rounds).toFixed(1);
+          const pRounds = player.finished
+            ? (player.finishedRound ?? Math.max(player.roundCompleted ?? 0, 1))
+            : Math.max(player.roundCompleted ?? 0, (player.targetIndex > 0 ? 1 : 0));
+          const mpr = pRounds > 0 ? (marks / pRounds).toFixed(1) : (marks > 0 ? marks.toFixed(1) : '0.0');
           const isPerfect = player.perfectInRound === game.round || (player.lastIsPerfect && (player.roundCompleted ?? 0) === game.round);
 
           return (

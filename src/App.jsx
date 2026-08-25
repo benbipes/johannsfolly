@@ -524,7 +524,8 @@ export default function App() {
               const pMarks = finalStats?.marksMap?.[p.name] ?? p.targetIndex;
               const pPerfects = finalStats?.perfectsMap?.[p.name] ?? p.perfectCount ?? 0;
               const pLegs = p.legsWon ?? finalStats?.legsWonMap?.[p.name] ?? legsWonMap[p.name] ?? 0;
-              const pMpr = rounds > 0 ? (pMarks / rounds).toFixed(2) : '—';
+              const pRounds = p.finished ? (p.finishedRound ?? rounds) : rounds;
+              const pMpr = pRounds > 0 ? (pMarks / pRounds).toFixed(2) : '—';
               const isWinner = finalWinners.includes(idx);
               return (
                 <div key={p.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.65rem 0.85rem', background: 'var(--surface2)', borderRadius: '10px', border: isWinner ? '2px solid var(--accent)' : '1px solid var(--border)' }}>
