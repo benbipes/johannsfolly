@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { TARGET_SEQUENCE, BULL_INDEX, processDarts, getPlayerMarks } from '../gameLogic.js';
 import { playSound, playRandomMissSwear, isSoundEnabled, toggleSound, unlockAudio } from '../audio.js';
+import logoImg from '../assets/logo.png';
 
 export default function ScoringScreen({
   game,
@@ -180,7 +181,7 @@ export default function ScoringScreen({
       {/* Top Bar: Brand Logo + Round Badge on Left, Room Code on Right */}
       <div className="figma-header-bar">
         <div className="figma-header-left">
-          <img src="/logo.png" alt="Johann's Folly" className="figma-header-logo" />
+          <img src={logoImg} alt="Johann's Folly" className="figma-header-logo" />
           <div className="figma-round-pill">Round {game.round}</div>
         </div>
         {roomCode && (

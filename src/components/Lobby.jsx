@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getOpenRooms } from '../useGameSync.js';
 import { getLoggedUsers, getLoggedInUserEmail } from '../auth.js';
+import logoImg from '../assets/logo.png';
 
 export default function Lobby({
   onCreateRoom,
@@ -76,7 +77,7 @@ export default function Lobby({
   return (
     <div className="screen">
       <div className="setup-header">
-        <img src="/logo.png" alt="Johann's Folly" className="app-logo" />
+        <img src={logoImg} alt="Johann's Folly" className="app-logo" />
         {currentUser && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem', marginTop: '0.65rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>

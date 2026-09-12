@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import logoImg from '../assets/logo.png';
 
 const MAX_PLAYERS = 10;
 
@@ -27,7 +28,7 @@ export default function Setup({ onStart, solo = false, initialNames = null }) {
   return (
     <div className="screen">
       <div className="setup-header">
-        <img src="/logo.png" alt="Johann's Folly" className="app-logo" />
+        <img src={logoImg} alt="Johann's Folly" className="app-logo" />
         <p>Enter player {solo ? 'name (1–10 players)' : 'names (2–10 players)'}</p>
       </div>
 

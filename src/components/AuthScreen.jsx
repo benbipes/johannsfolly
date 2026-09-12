@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { register, login, requestPasswordReset, resetPassword } from '../auth.js';
+import logoImg from '../assets/logo.png';
 
 export default function AuthScreen({ onAuth }) {
   // Check URL query parameters for reset link
@@ -127,7 +128,7 @@ export default function AuthScreen({ onAuth }) {
   return (
     <div className="screen">
       <div className="setup-header">
-        <img src="/logo.png" alt="Johann's Folly" className="app-logo" />
+        <img src={logoImg} alt="Johann's Folly" className="app-logo" />
       </div>
 
       <div className="card">

@@ -11,6 +11,7 @@ import {
   publishNetworkRoomEvent,
   subscribeNetworkRoom,
 } from '../networkSync.js';
+import logoImg from '../assets/logo.png';
 
 const MAX_PLAYERS = 10;
 
@@ -277,7 +278,7 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
     return (
       <div className="screen">
         <div className="setup-header">
-          <img src="/logo.png" alt="Johann's Folly" className="app-logo" />
+          <img src={logoImg} alt="Johann's Folly" className="app-logo" />
         </div>
 
         <div className="card room-code-card">
@@ -339,7 +340,7 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
   return (
     <div className="screen">
       <div className="setup-header">
-        <img src="/logo.png" alt="Johann's Folly" className="app-logo" />
+        <img src={logoImg} alt="Johann's Folly" className="app-logo" />
         <p>Share the room code so others can join on their own device</p>
       </div>
 
