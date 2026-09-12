@@ -76,6 +76,21 @@ export function nextPlayer(game) {
 }
 
 /**
+ * Returns the exact total marks scored by a player.
+ * A player on targetIndex scored targetIndex marks (0 on 20, 6 on 14, 20 on Bull).
+ * A player who closed Bull (finished) scored 21 marks (20 to reach Bull + 1 to close Bull).
+ */
+export function getPlayerMarks(player) {
+  if (!player) return 0;
+  const baseMarks = player.targetIndex ?? 0;
+  const finishedBonus = player.finished ? 1 : 0;
+  if (typeof player.marks === 'number' && player.marks > 0) {
+    return Math.max(player.marks, baseMarks + finishedBonus);
+  }
+  return baseMarks + finishedBonus;
+}
+
+/**
  * Merges two player states for the same player, preserving maximum progress.
  */
 export function mergePlayerState(localP, remoteP) {
@@ -98,15 +113,22 @@ export function mergePlayerState(localP, remoteP) {
     }
   }
 
+  const targetIndex = Math.max(localP.targetIndex ?? 0, remoteP.targetIndex ?? 0);
+  const marks = Math.max(
+    localP.marks ?? 0,
+    remoteP.marks ?? 0,
+    targetIndex + (isFinished ? 1 : 0)
+  );
+
   return {
     ...baseP,
-    targetIndex: Math.max(localP.targetIndex ?? 0, remoteP.targetIndex ?? 0),
+    targetIndex,
     roundCompleted: Math.max(localRound, remoteRound),
     finished: isFinished,
     finishedRound,
     lastIsPerfect: baseP.lastIsPerfect,
     perfectCount: Math.max(localP.perfectCount ?? 0, remoteP.perfectCount ?? 0),
-    marks: Math.max(localP.marks ?? 0, remoteP.marks ?? 0),
+    marks,
     darts: Math.max(localP.darts ?? 0, remoteP.darts ?? 0),
     legsWon: Math.max(localP.legsWon ?? 0, remoteP.legsWon ?? 0),
   };

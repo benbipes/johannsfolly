@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TARGET_SEQUENCE, BULL_INDEX, processDarts } from '../gameLogic.js';
+import { TARGET_SEQUENCE, BULL_INDEX, processDarts, getPlayerMarks } from '../gameLogic.js';
 import { playSound, playRandomMissSwear, isSoundEnabled, toggleSound, unlockAudio } from '../audio.js';
 
 export default function ScoringScreen({
@@ -307,7 +307,7 @@ export default function ScoringScreen({
                 const isMe = myPlayerName && p.name?.trim().toLowerCase() === myPlayerName.trim().toLowerCase();
                 const atBull = p.targetIndex === BULL_INDEX;
                 const target = TARGET_SEQUENCE[p.targetIndex];
-                const marks = p.marks ?? p.targetIndex ?? 0;
+                const marks = getPlayerMarks(p);
                 const pRounds = p.finished
                   ? (p.finishedRound ?? Math.max(p.roundCompleted ?? 0, 1))
                   : Math.max(p.roundCompleted ?? 0, (p.targetIndex > 0 ? 1 : 0));

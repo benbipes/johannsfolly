@@ -2,6 +2,7 @@ import {
   publishNetworkLeaderboard,
   subscribeNetworkLeaderboard,
 } from './networkSync.js';
+import { getPlayerMarks } from './gameLogic.js';
 
 const STORAGE_KEY = 'jf:leaderboard';
 const CHANNEL_NAME = 'jf:leaderboard';
@@ -11,10 +12,20 @@ function loadRaw() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return { players: {}, recordedIds: {} };
     const parsed = JSON.parse(raw);
-    if (!parsed.players) {
-      return { players: parsed, recordedIds: {} };
+    const data = !parsed.players ? { players: parsed, recordedIds: {} } : parsed;
+    // Retroactively correct historical games where a win was recorded with 20 marks instead of 21
+    if (data.players) {
+      Object.values(data.players).forEach(pStats => {
+        if (Array.isArray(pStats?.games)) {
+          pStats.games.forEach(g => {
+            if (g && g.won && g.totalMarks === 20) {
+              g.totalMarks = 21;
+            }
+          });
+        }
+      });
     }
-    return parsed;
+    return data;
   } catch {
     return { players: {}, recordedIds: {} };
   }
@@ -59,6 +70,9 @@ export function mergeLeaderboardData(remoteData) {
     const remoteGames = remoteStats.games || [];
 
     remoteGames.forEach(g => {
+      if (g && g.won && g.totalMarks === 20) {
+        g.totalMarks = 21;
+      }
       const exists = localPlayer.games.some(lg => (lg.gameId && lg.gameId === g.gameId) || (lg.date === g.date && lg.rounds === g.rounds));
       if (!exists) {
         localPlayer.games.push(g);
@@ -156,7 +170,7 @@ export function recordGame(players, winnerIndices, totalRounds, marksPerPlayer, 
       data.players[name] = { wins: 0, games: [] };
     }
     const isWinner = winnerIndices.includes(i);
-    const marks = marksPerPlayer?.[name] ?? player.targetIndex ?? 0;
+    const marks = marksPerPlayer?.[name] ?? getPlayerMarks(player);
     const darts = dartsPerPlayer?.[name] ?? 0;
     const perfects = player.perfectCount ?? 0;
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { TARGET_SEQUENCE, BULL_INDEX } from '../gameLogic.js';
+import { TARGET_SEQUENCE, BULL_INDEX, getPlayerMarks } from '../gameLogic.js';
 
 export default function Scoreboard({ game, roomCode, onClose }) {
   const [copiedCode, setCopiedCode] = useState(false);
@@ -46,7 +46,7 @@ export default function Scoreboard({ game, roomCode, onClose }) {
           const atBull = player.targetIndex === BULL_INDEX;
           const target = TARGET_SEQUENCE[player.targetIndex];
           const progress = player.targetIndex / BULL_INDEX;
-          const marks = player.marks ?? player.targetIndex ?? 0;
+          const marks = getPlayerMarks(player);
           const pRounds = player.finished
             ? (player.finishedRound ?? Math.max(player.roundCompleted ?? 0, 1))
             : Math.max(player.roundCompleted ?? 0, (player.targetIndex > 0 ? 1 : 0));

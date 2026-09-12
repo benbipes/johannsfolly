@@ -9,7 +9,7 @@ import ScoringScreen from './components/ScoringScreen.jsx';
 import PlayoffScreen from './components/PlayoffScreen.jsx';
 import LeaderboardView from './components/Leaderboard.jsx';
 
-import { createGame, mergeGameState } from './gameLogic.js';
+import { createGame, mergeGameState, getPlayerMarks } from './gameLogic.js';
 import { useGameSync } from './useGameSync.js';
 import { getLoggedInUser, logout, deleteAccount, refreshLoggedUserPresence } from './auth.js';
 import { recordGame } from './leaderboard.js';
@@ -243,8 +243,10 @@ export default function App() {
       const playerName = targetPlayer.name;
 
       // Accumulate per-player stats for leaderboard
-      const prevMarks = targetPlayer.targetIndex;
-      const marksThisTurn = newTargetIndex - prevMarks;
+      const isFinished = hitBull || Boolean(targetPlayer.finished);
+      const newMarks = newTargetIndex + (isFinished ? 1 : 0);
+      const prevMarks = getPlayerMarks(targetPlayer);
+      const marksThisTurn = Math.max(0, newMarks - prevMarks);
       const dartsThisTurn = allDarts ? allDarts.length : 0;
       const stats = playerStatsRef.current;
       stats[playerName] = {
@@ -254,19 +256,20 @@ export default function App() {
       };
 
       // Update current player's progress — finished ONLY when actually hitting Bullseye
-      const isFinished = hitBull;
       const players = prev.players.map((p, i) => {
         if (i !== scoringPlayerIdx) return p;
+        const playerFinished = p.finished || isFinished;
+        const playerMarks = newTargetIndex + (playerFinished ? 1 : 0);
         return {
           ...p,
           targetIndex: newTargetIndex,
-          finished: p.finished || isFinished,
+          finished: playerFinished,
           finishedRound: isFinished ? (p.finishedRound ?? prev.round) : p.finishedRound,
           roundCompleted: prev.round,
           lastIsPerfect: isPerfect,
           perfectInRound: isPerfect ? prev.round : null,
           perfectCount: (p.perfectCount || 0) + (isPerfect ? 1 : 0),
-          marks: (p.marks ?? p.targetIndex) + marksThisTurn,
+          marks: playerMarks,
           darts: (p.darts || 0) + dartsThisTurn,
         };
       });
@@ -317,7 +320,7 @@ export default function App() {
           const dartsMap = {};
           const perfectsMap = {};
           updatedPlayers.forEach(p => {
-            marksMap[p.name] = p.marks ?? p.targetIndex;
+            marksMap[p.name] = getPlayerMarks(p);
             dartsMap[p.name] = p.darts ?? 0;
             perfectsMap[p.name] = p.perfectCount ?? 0;
           });
@@ -385,7 +388,7 @@ export default function App() {
     const dartsMap = {};
     const perfectsMap = {};
     updatedPlayers.forEach(p => {
-      marksMap[p.name] = p.marks ?? p.targetIndex;
+      marksMap[p.name] = getPlayerMarks(p);
       dartsMap[p.name] = p.darts ?? 0;
       perfectsMap[p.name] = p.perfectCount ?? 0;
     });
@@ -521,7 +524,7 @@ export default function App() {
           <p className="section-title" style={{ marginBottom: '0.75rem' }}>Final Player Results</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
             {game.players.map((p, idx) => {
-              const pMarks = finalStats?.marksMap?.[p.name] ?? p.targetIndex;
+              const pMarks = finalStats?.marksMap?.[p.name] ?? getPlayerMarks(p);
               const pPerfects = finalStats?.perfectsMap?.[p.name] ?? p.perfectCount ?? 0;
               const pLegs = p.legsWon ?? finalStats?.legsWonMap?.[p.name] ?? legsWonMap[p.name] ?? 0;
               const pRounds = p.finished ? (p.finishedRound ?? rounds) : rounds;
