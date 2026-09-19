@@ -3,9 +3,10 @@ import logoImg from '../assets/logo.png';
 
 const MAX_PLAYERS = 10;
 
-export default function Setup({ onStart, solo = false, initialNames = null }) {
+export default function Setup({ onStart, solo = false, initialNames = null, defaultTieBreaker = 'playoff' }) {
   const MIN_PLAYERS = solo ? 1 : 2;
   const [names, setNames] = useState(initialNames ?? (solo ? [''] : ['', '']));
+  const tieBreaker = defaultTieBreaker;
 
   function updateName(i, val) {
     setNames(prev => prev.map((n, idx) => (idx === i ? val : n)));
@@ -19,7 +20,7 @@ export default function Setup({ onStart, solo = false, initialNames = null }) {
   function handleStart() {
     const filled = names.map(n => n.trim()).filter(Boolean);
     if (filled.length < MIN_PLAYERS) return;
-    onStart(filled);
+    onStart(filled, tieBreaker);
   }
 
   const filled = names.map(n => n.trim()).filter(Boolean);
@@ -63,12 +64,26 @@ export default function Setup({ onStart, solo = false, initialNames = null }) {
         )}
       </div>
 
+      <div className="card" style={{ textAlign: 'center', padding: '0.85rem' }}>
+        <p className="section-title" style={{ marginBottom: '0.35rem' }}>Tie-Breaker Rule</p>
+        <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--accent)', marginTop: '0.2rem' }}>
+          🎯 Player's Choice at Playoff
+        </div>
+        <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: '0.25rem 0 0' }}>
+          If players tie on Bull in the same round, the tied players choose between Random Number (1–20) and Add-Up Bulls (Bullseye).
+        </p>
+      </div>
+
       <div className="card" style={{ fontSize: '0.85rem', color: 'var(--muted)', lineHeight: 1.6 }}>
         <p className="section-title" style={{ marginBottom: '0.5rem' }}>How to play</p>
         <p>Start at <strong style={{color:'var(--text)'}}>20</strong>, work down to <strong style={{color:'var(--accent)'}}>Bull</strong>.</p>
         <p>Hit = advance 1 · Double = +2 · Triple = +3</p>
         <p>All 3 darts score = <strong style={{color:'var(--accent2)'}}>Perfect Throw</strong> → 3 bonus darts!</p>
-        <p>Reach Bull, then hit Bull to win. If multiple players reach Bull, random-number throw-off!</p>
+        <p>
+          Reach Bull, then hit Bull to win. If multiple players tie at Bull: <strong style={{color:'var(--accent)'}}>
+            tied players choose playoff style (Random # or Add-Up Bulls)!
+          </strong>
+        </p>
       </div>
 
       <div className="spacer" />

@@ -72,10 +72,11 @@ export default function ScoringScreen({
   ).newTargetIndex;
   const currentTarget = TARGET_SEQUENCE[currentTargetIndex];
 
+  const tieBreaker = game.tieBreaker || 'playoff';
   const dartOptions = [
     { key: 'miss', label: 'Miss', cls: 'btn-miss' },
-    { key: 'single', label: 'Single', cls: 'btn-single' },
-    { key: 'double', label: 'Double', cls: 'btn-double' },
+    { key: 'single', label: currentTargetIndex === BULL_INDEX && tieBreaker === 'bulls' ? 'Single Bull (1)' : 'Single', cls: 'btn-single' },
+    { key: 'double', label: currentTargetIndex === BULL_INDEX && tieBreaker === 'bulls' ? 'Double Bull (2)' : 'Double', cls: 'btn-double' },
   ];
   if (currentTargetIndex !== BULL_INDEX) {
     dartOptions.push({ key: 'triple', label: 'Triple', cls: 'btn-triple' });
@@ -88,18 +89,20 @@ export default function ScoringScreen({
     const newDarts = [...darts, type];
     setDarts(newDarts);
 
-    const { newTargetIndex, isPerfect, hitBull } = processDarts(
+    const { newTargetIndex, isPerfect, hitBull, bullsHit } = processDarts(
       { targetIndex: simulatedTargetIndex },
       newDarts,
+      tieBreaker
     );
     const allTurnDarts = [...turnDarts, ...newDarts];
 
     let specialSoundPlayed = false;
 
-    if (hitBull) {
+    // In playoff mode: first hit on Bull immediately closes the board
+    if (hitBull && tieBreaker !== 'bulls') {
       playSound('bullseye');
       const isTurnPerfect = (perfectSets > 0 || isPerfect) && !newDarts.every(d => d === 'miss');
-      onTurnComplete(selectedIdx, newTargetIndex, allTurnDarts, true, isTurnPerfect);
+      onTurnComplete(selectedIdx, newTargetIndex, allTurnDarts, true, isTurnPerfect, 0, bullsHit);
       setDarts([]);
       setTurnDarts([]);
       setPerfectSets(0);
@@ -107,7 +110,24 @@ export default function ScoringScreen({
       return;
     }
 
+    if (type !== 'miss' && currentTargetIndex === BULL_INDEX) {
+      playSound('bullseye');
+      specialSoundPlayed = true;
+    }
+
     if (newDarts.length === 3) {
+      // In bulls mode: hitting bull finishes at the end of the 3-dart set
+      if (hitBull && tieBreaker === 'bulls') {
+        playSound('bullseye');
+        const isTurnPerfect = (perfectSets > 0 || isPerfect) && !newDarts.every(d => d === 'miss');
+        onTurnComplete(selectedIdx, newTargetIndex, allTurnDarts, true, isTurnPerfect, 0, bullsHit);
+        setDarts([]);
+        setTurnDarts([]);
+        setPerfectSets(0);
+        setSimulatedTargetIndex(newTargetIndex);
+        return;
+      }
+
       const isAllMiss = newDarts.every(d => d === 'miss');
       const hadPerfect = perfectSets > 0 || !!activePlayer?.lastIsPerfect;
       const isCurse = isAllMiss && hadPerfect;

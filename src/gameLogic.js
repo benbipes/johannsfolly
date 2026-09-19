@@ -14,21 +14,28 @@ export function createPlayer(name, legsWon = 0) {
     perfectCount: 0,
     marks: 0,
     darts: 0,
+    bullsHit: 0,
     legsWon: legsWon || 0,
   };
 }
 
-export function createGame(playerNames, legsWonMap = {}) {
+export function createGame(playerNames, legsWonMap = {}, tieBreaker = 'playoff') {
   return {
     gameId: 'game_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+    createdAt: Date.now(),
+    tieBreaker: tieBreaker || 'playoff', // 'playoff' | 'bulls'
     players: playerNames.map(name => createPlayer(name, legsWonMap[name] || 0)),
     round: 1,
     currentPlayerIndex: 0,
     phase: 'playing', // 'playing' | 'playoff_pick' | 'playoff' | 'done'
     winnersThisRound: [], // player indices who hit bull this round
+    playoffStyle: null, // null | 'random' | 'bulls'
     playoffNumber: null,
-    playoffScores: {}, // playerIndex -> count of hits
-    playoffCurrentIndex: 0, // which playoff player is currently throwing
+    playoffScores: {}, // playerIndex -> count of hits / bulls
+    playoffSubmitted: {}, // playerIndex -> boolean
+    playoffRound: 1,
+    playoffPlayers: [],
+    playoffCurrentIndex: 0,
     gameWinner: null, // player index if sole winner
     legsWonMap: legsWonMap || {},
   };
@@ -37,12 +44,13 @@ export function createGame(playerNames, legsWonMap = {}) {
 /**
  * Process a set of dart results for the current player.
  * dartResults: array of 'miss' | 'single' | 'double' | 'triple'
- * Returns { newTargetIndex, isPerfect, hitBull }
+ * Returns { newTargetIndex, isPerfect, hitBull, bullsHit }
  */
-export function processDarts(player, dartResults) {
+export function processDarts(player, dartResults, tieBreaker = 'playoff') {
   let targetIndex = player.targetIndex;
   let allHit = true;
   let hitBull = false;
+  let bullsHit = 0;
 
   for (const dart of dartResults) {
     if (dart === 'miss') {
@@ -51,7 +59,12 @@ export function processDarts(player, dartResults) {
     }
     if (targetIndex === BULL_INDEX) {
       hitBull = true;
-      break;
+      const count = dart === 'single' ? 1 : dart === 'double' ? 2 : 1;
+      bullsHit += count;
+      if (tieBreaker !== 'bulls') {
+        break;
+      }
+      continue;
     }
     const advance = dart === 'single' ? 1 : dart === 'double' ? 2 : 3;
     targetIndex = Math.min(targetIndex + advance, BULL_INDEX);
@@ -63,6 +76,7 @@ export function processDarts(player, dartResults) {
     newTargetIndex: targetIndex,
     isPerfect,
     hitBull,
+    bullsHit,
   };
 }
 
@@ -130,6 +144,7 @@ export function mergePlayerState(localP, remoteP) {
     perfectCount: Math.max(localP.perfectCount ?? 0, remoteP.perfectCount ?? 0),
     marks,
     darts: Math.max(localP.darts ?? 0, remoteP.darts ?? 0),
+    bullsHit: Math.max(localP.bullsHit ?? 0, remoteP.bullsHit ?? 0),
     legsWon: Math.max(localP.legsWon ?? 0, remoteP.legsWon ?? 0),
   };
 }
@@ -140,6 +155,20 @@ export function mergePlayerState(localP, remoteP) {
 export function mergeGameState(localGame, remoteGame) {
   if (!localGame) return remoteGame;
   if (!remoteGame) return localGame;
+
+  // If remote game is a completely different game (e.g. rematch or new room game started),
+  // pick the newer game cleanly instead of merging finished game state into new game!
+  if (localGame.gameId && remoteGame.gameId && localGame.gameId !== remoteGame.gameId) {
+    const localCreated = localGame.createdAt || 0;
+    const remoteCreated = remoteGame.createdAt || 0;
+    if (remoteCreated > localCreated) {
+      return remoteGame;
+    } else if (localCreated > remoteCreated) {
+      return localGame;
+    } else {
+      return remoteGame.gameId > localGame.gameId ? remoteGame : localGame;
+    }
+  }
 
   const playerMap = new Map();
 
@@ -186,6 +215,47 @@ export function mergeGameState(localGame, remoteGame) {
     view = 'playoff';
   }
 
+  // Simultaneous playoff merge
+  const localPlayoffRound = localGame.playoffRound ?? 1;
+  const remotePlayoffRound = remoteGame.playoffRound ?? 1;
+  const playoffRound = Math.max(localPlayoffRound, remotePlayoffRound);
+
+  let playoffScores = {};
+  let playoffSubmitted = {};
+  if (localPlayoffRound === remotePlayoffRound) {
+    playoffScores = {
+      ...remoteGame.playoffScores,
+      ...localGame.playoffScores,
+    };
+    playoffSubmitted = {
+      ...remoteGame.playoffSubmitted,
+      ...localGame.playoffSubmitted,
+    };
+  } else if (remotePlayoffRound > localPlayoffRound) {
+    playoffScores = remoteGame.playoffScores || {};
+    playoffSubmitted = remoteGame.playoffSubmitted || {};
+  } else {
+    playoffScores = localGame.playoffScores || {};
+    playoffSubmitted = localGame.playoffSubmitted || {};
+  }
+
+  let playoffStyle = null;
+  let playoffNumber = null;
+  if (remotePlayoffRound > localPlayoffRound) {
+    playoffStyle = remoteGame.playoffStyle || null;
+    playoffNumber = remoteGame.playoffNumber ?? null;
+  } else if (localPlayoffRound > remotePlayoffRound) {
+    playoffStyle = localGame.playoffStyle || null;
+    playoffNumber = localGame.playoffNumber ?? null;
+  } else {
+    playoffStyle = localGame.playoffStyle || remoteGame.playoffStyle || null;
+    playoffNumber = localGame.playoffStyle
+      ? (localGame.playoffNumber ?? remoteGame.playoffNumber ?? null)
+      : (remoteGame.playoffNumber ?? localGame.playoffNumber ?? null);
+  }
+  const playoffPlayers = remoteGame.playoffPlayers?.length ? remoteGame.playoffPlayers : (localGame.playoffPlayers || []);
+  const tieBreaker = localGame.tieBreaker || remoteGame.tieBreaker || 'playoff';
+
   const legsWonMap = {
     ...remoteGame.legsWonMap,
     ...localGame.legsWonMap,
@@ -195,10 +265,18 @@ export function mergeGameState(localGame, remoteGame) {
     ...remoteGame,
     ...localGame,
     gameId: localGame.gameId || remoteGame.gameId,
+    createdAt: localGame.createdAt || remoteGame.createdAt,
+    tieBreaker,
     players: mergedPlayers,
     round: currentRound,
     currentPlayerIndex: localGame.round >= remoteGame.round ? (localGame.currentPlayerIndex ?? 0) : (remoteGame.currentPlayerIndex ?? 0),
     view,
+    playoffRound,
+    playoffStyle,
+    playoffScores,
+    playoffSubmitted,
+    playoffNumber,
+    playoffPlayers,
     legsWonMap,
   };
 }

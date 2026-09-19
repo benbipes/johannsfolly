@@ -15,9 +15,10 @@ import logoImg from '../assets/logo.png';
 
 const MAX_PLAYERS = 10;
 
-export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onLeave }) {
+export default function RoomLobby({ roomCode, isHost, myPlayerName, defaultTieBreaker = 'playoff', onStart, onLeave }) {
   const [names, setNames] = useState(myPlayerName ? [myPlayerName] : ['']);
   const [copied, setCopied] = useState(false);
+  const [tieBreaker, setTieBreaker] = useState(defaultTieBreaker);
   // Joiner: track whether the host has started (waiting state)
   const [waiting, setWaiting] = useState(!isHost);
   // Joiner: list of all players in the room (received from host)
@@ -129,9 +130,9 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
         const next = [hostName, ...nextJoined];
         localStorage.setItem(`room-players-list:${roomCode}`, JSON.stringify(next));
         try {
-          channel.postMessage({ type: 'player_list', players: next });
+          channel.postMessage({ type: 'player_list', players: next, tieBreaker: tieBreakerRef.current });
         } catch { /* ignore */ }
-        publishNetworkRoomEvent(roomCode, { type: 'player_list', players: next });
+        publishNetworkRoomEvent(roomCode, { type: 'player_list', players: next, tieBreaker: tieBreakerRef.current });
         return next;
       });
     }
@@ -170,9 +171,25 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
     };
   }, [isHost, roomCode, myPlayerName]);
 
+  const tieBreakerRef = useRef(tieBreaker);
+  tieBreakerRef.current = tieBreaker;
+
+
+
   // Joiner: listen for game start and player list updates across local and cross-device network
   useEffect(() => {
     if (isHost) return;
+    const readStoredSettings = () => {
+      try {
+        const storedSettings = localStorage.getItem(`room-settings:${roomCode}`);
+        if (storedSettings) {
+          const parsed = JSON.parse(storedSettings);
+          if (parsed?.tieBreaker) setTieBreaker(parsed.tieBreaker);
+        }
+      } catch { /* ignore */ }
+    };
+    readStoredSettings();
+
     const readStoredList = () => {
       try {
         const stored = localStorage.getItem(`room-players-list:${roomCode}`);
@@ -191,6 +208,9 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
         setWaiting(false); // App will handle the state update and view change
       } else if (event.data?.type === 'player_list' && Array.isArray(event.data.players)) {
         setAllPlayers(event.data.players.filter(Boolean));
+        if (event.data.tieBreaker) setTieBreaker(event.data.tieBreaker);
+      } else if (event.data?.type === 'room_settings' && event.data.tieBreaker) {
+        setTieBreaker(event.data.tieBreaker);
       }
     };
 
@@ -200,6 +220,9 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
         setWaiting(false);
       } else if (event?.type === 'player_list' && Array.isArray(event.players)) {
         setAllPlayers(event.players.filter(Boolean));
+        if (event.tieBreaker) setTieBreaker(event.tieBreaker);
+      } else if (event?.type === 'room_settings' && event.tieBreaker) {
+        setTieBreaker(event.tieBreaker);
       }
     });
 
@@ -207,9 +230,15 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
       if (!event.key || event.key === `room-players-list:${roomCode}`) {
         readStoredList();
       }
+      if (!event.key || event.key === `room-settings:${roomCode}`) {
+        readStoredSettings();
+      }
     }
     window.addEventListener('storage', handleStorage);
-    const id = setInterval(readStoredList, 2000);
+    const id = setInterval(() => {
+      readStoredList();
+      readStoredSettings();
+    }, 2000);
     return () => {
       channel.close();
       window.removeEventListener('storage', handleStorage);
@@ -224,9 +253,9 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
       try {
         localStorage.setItem(`room-players-list:${roomCode}`, JSON.stringify(next));
         const channel = new BroadcastChannel(`jf:room:${roomCode}`);
-        channel.postMessage({ type: 'player_list', players: next });
+        channel.postMessage({ type: 'player_list', players: next, tieBreaker: tieBreakerRef.current });
         channel.close();
-        publishNetworkRoomEvent(roomCode, { type: 'player_list', players: next });
+        publishNetworkRoomEvent(roomCode, { type: 'player_list', players: next, tieBreaker: tieBreakerRef.current });
       } catch { /* ignore */ }
       return next;
     });
@@ -240,7 +269,8 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
     clearRoom(roomCode);
     clearRoomPlayers(roomCode);
     localStorage.removeItem(`room-players-list:${roomCode}`);
-    onStart(filled);
+    localStorage.removeItem(`room-settings:${roomCode}`);
+    onStart(filled, false, tieBreaker);
   }
 
   async function handleCopy() {
@@ -327,6 +357,18 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
           </div>
         )}
 
+        <div className="card" style={{ textAlign: 'center', padding: '0.85rem' }}>
+          <span style={{ fontSize: '0.8rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Tie-Breaker Rule
+          </span>
+          <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--accent)', marginTop: '0.2rem' }}>
+            🎯 Player's Choice at Playoff
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.15rem' }}>
+            Tied players choose between Random Number and Add-Up Bulls once playoff is reached
+          </div>
+        </div>
+
         <div className="spacer" />
 
         <button className="btn-secondary" style={{ width: '100%' }} onClick={handleLeave}>
@@ -386,6 +428,16 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, onStart, onL
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="card" style={{ textAlign: 'center', padding: '0.85rem' }}>
+        <p className="section-title" style={{ marginBottom: '0.35rem' }}>Tie-Breaker Rule</p>
+        <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--accent)', marginTop: '0.2rem' }}>
+          🎯 Player's Choice at Playoff
+        </div>
+        <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: '0.25rem 0 0' }}>
+          If players tie on Bull in the same round, the tied players choose between Random Number (1–20) and Add-Up Bulls (Bullseye).
+        </p>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>

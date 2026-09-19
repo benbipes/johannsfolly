@@ -84,6 +84,29 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-danger { background: var(--danger); color: #000; font-size: 1.1rem; }
 .btn-success { background: var(--accent2); color: #000; font-size: 1.1rem; }
 
+.rule-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 0.6rem;
+  border-radius: 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+.rule-pill:hover {
+  border-color: var(--accent);
+}
+.rule-pill.active {
+  background: rgba(255, 215, 0, 0.12);
+  border: 2px solid var(--accent);
+  color: var(--accent);
+}
+
 /* ── Setup Screen ──────────────────────────────────────────── */
 .setup-header { text-align: center; padding: 0.5rem 0; }
 .setup-header p { color: var(--muted); margin-top: 0.35rem; font-size: 1.1rem; }

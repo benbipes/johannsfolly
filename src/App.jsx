@@ -53,8 +53,10 @@ export default function App() {
   const [finalWinners, setFinalWinners] = useState([]);
   const [finalStats, setFinalStats] = useState(null); // { rounds, marksMap, dartsMap, perfectsMap }
   const [playoffScores, setPlayoffScores] = useState({});
+  const [playoffSubmitted, setPlayoffSubmitted] = useState({});
   const [playoffNumber, setPlayoffNumber] = useState(null);
-  const [playoffCurrentIdx, setPlayoffCurrentIdx] = useState(0);
+  const [playoffStyle, setPlayoffStyle] = useState(null);
+  const [playoffRound, setPlayoffRound] = useState(1);
   const [legsWonMap, setLegsWonMap] = useState({});
   const [splashRound, setSplashRound] = useState(null);
   const splashTimerRef = useRef(null);
@@ -164,12 +166,27 @@ export default function App() {
         }
       }
 
+      const isNewGame = prevGame && mergedGame.gameId !== prevGame.gameId;
+      if (isNewGame) {
+        playerStatsRef.current = {};
+        setPlayoffPlayers([]);
+        setPlayoffScores({});
+        setPlayoffSubmitted({});
+        setPlayoffNumber(null);
+        setPlayoffStyle(null);
+        setPlayoffRound(1);
+        setFinalWinners([]);
+        setFinalStats(null);
+      }
+
       if (mergedGame?.view) {
         setView(mergedGame.view);
         if (mergedGame.playoffPlayers) setPlayoffPlayers(mergedGame.playoffPlayers);
+        if (mergedGame.playoffStyle !== undefined) setPlayoffStyle(mergedGame.playoffStyle);
         if (mergedGame.playoffNumber !== undefined) setPlayoffNumber(mergedGame.playoffNumber);
         if (mergedGame.playoffScores) setPlayoffScores(mergedGame.playoffScores);
-        if (mergedGame.playoffCurrentIdx !== undefined) setPlayoffCurrentIdx(mergedGame.playoffCurrentIdx);
+        if (mergedGame.playoffSubmitted) setPlayoffSubmitted(mergedGame.playoffSubmitted);
+        if (mergedGame.playoffRound !== undefined) setPlayoffRound(mergedGame.playoffRound);
         if (mergedGame.finalWinners) setFinalWinners(mergedGame.finalWinners);
         if (mergedGame.finalStats) setFinalStats(mergedGame.finalStats);
         if (mergedGame.legsWonMap) setLegsWonMap(mergedGame.legsWonMap);
@@ -212,29 +229,46 @@ export default function App() {
     setView('room');
   }
 
-  function handleSolo() {
+  function handleSolo(tieBreaker = 'playoff') {
     reunlockAllAudio();
     playerStatsRef.current = {};
-    const newGame = createGame([loggedInUser ?? 'Solo Player']);
+    const newGame = createGame([loggedInUser ?? 'Solo Player'], {}, tieBreaker);
     setGame(newGame);
+    setPlayoffPlayers([]);
+    setFinalWinners([]);
+    setFinalStats(null);
+    setPlayoffScores({});
+    setPlayoffSubmitted({});
+    setPlayoffNumber(null);
+    setPlayoffStyle(null);
+    setPlayoffRound(1);
     setView('scoring');
   }
 
   // --- Room start ---
-  function handleRoomStart(playerNames, keepLegs = false) {
+  function handleRoomStart(playerNames, keepLegs = false, tieBreaker = 'playoff') {
     reunlockAllAudio();
     const currentLegs = keepLegs ? (game?.legsWonMap || legsWonMap) : {};
-    const newGame = createGame(playerNames, currentLegs);
+    const rule = tieBreaker || game?.tieBreaker || 'playoff';
+    const newGame = createGame(playerNames, currentLegs, rule);
     setGame(newGame);
     if (!keepLegs) setLegsWonMap({});
     playerStatsRef.current = {};
+    setPlayoffPlayers([]);
+    setFinalWinners([]);
+    setFinalStats(null);
+    setPlayoffScores({});
+    setPlayoffSubmitted({});
+    setPlayoffNumber(null);
+    setPlayoffStyle(null);
+    setPlayoffRound(1);
     broadcast({ ...newGame, view: 'scoring' });
     setView('scoring');
   }
 
 
   // --- Turn complete: called when a player finishes all their darts ---
-  const handleTurnComplete = useCallback((scoringPlayerIdx, newTargetIndex, allDarts, hitBull, isPerfect, soundDelayMs = 0) => {
+  const handleTurnComplete = useCallback((scoringPlayerIdx, newTargetIndex, allDarts, hitBull, isPerfect, soundDelayMs = 0, bullsHit = 0) => {
     setGame(prev => {
       if (!prev) return prev;
       const targetPlayer = prev.players[scoringPlayerIdx];
@@ -271,6 +305,7 @@ export default function App() {
           perfectCount: (p.perfectCount || 0) + (isPerfect ? 1 : 0),
           marks: playerMarks,
           darts: (p.darts || 0) + dartsThisTurn,
+          bullsHit: (p.bullsHit || 0) + bullsHit,
         };
       });
 
@@ -330,7 +365,9 @@ export default function App() {
           setFinalWinners([winnerIdx]);
           setFinalStats(fStats);
           setPlayoffScores({});
+          setPlayoffSubmitted({});
           setPlayoffNumber(null);
+          setPlayoffRound(1);
           setView('winner');
           advanced = {
             ...advanced,
@@ -340,23 +377,29 @@ export default function App() {
             finalStats: fStats,
             legsWonMap: nextLegsWonMap,
             playoffScores: {},
+            playoffSubmitted: {},
             playoffNumber: null,
+            playoffRound: 1,
           };
         } else if (bullPlayers.length > 1) {
-          const pNum = choosePlayoffNumber();
+          // Reached playoff! Allow players involved to choose playoff style (random number or add-up bulls)
           nextView = 'playoff';
           setPlayoffPlayers(bullPlayers);
           setPlayoffScores({});
-          setPlayoffNumber(pNum);
-          setPlayoffCurrentIdx(0);
+          setPlayoffSubmitted({});
+          setPlayoffNumber(null);
+          setPlayoffStyle(null);
+          setPlayoffRound(1);
           setView('playoff');
           advanced = {
             ...advanced,
             view: 'playoff',
             playoffPlayers: bullPlayers,
-            playoffNumber: pNum,
+            playoffStyle: null,
+            playoffNumber: null,
             playoffScores: {},
-            playoffCurrentIdx: 0,
+            playoffSubmitted: {},
+            playoffRound: 1,
           };
         }
       }
@@ -371,83 +414,185 @@ export default function App() {
     });
   }, []);
 
-  const handlePlayoffComplete = useCallback((winners = [], scores = {}) => {
-    const nextLegsWonMap = { ...(game.legsWonMap || legsWonMap) };
-    winners.forEach(i => {
-      const wName = game.players[i]?.name;
-      if (wName) nextLegsWonMap[wName] = (nextLegsWonMap[wName] || 0) + 1;
-    });
-    setLegsWonMap(nextLegsWonMap);
-
-    const updatedPlayers = game.players.map(p => ({
-      ...p,
-      legsWon: nextLegsWonMap[p.name] || 0,
-    }));
-
-    const marksMap = {};
-    const dartsMap = {};
-    const perfectsMap = {};
-    updatedPlayers.forEach(p => {
-      marksMap[p.name] = getPlayerMarks(p);
-      dartsMap[p.name] = p.darts ?? 0;
-      perfectsMap[p.name] = p.perfectCount ?? 0;
-    });
-    recordGame(updatedPlayers, winners, game.round, marksMap, dartsMap, game.gameId);
-
-    const fStats = { rounds: game.round, marksMap, dartsMap, perfectsMap, legsWonMap: nextLegsWonMap };
-    setFinalWinners(winners);
-    setFinalStats(fStats);
-    setPlayoffScores(scores);
-    setView('winner');
-
-    broadcast({
-      ...game,
-      players: updatedPlayers,
-      view: 'winner',
-      finalWinners: winners,
-      finalStats: fStats,
-      legsWonMap: nextLegsWonMap,
-      playoffScores: scores,
-    });
-  }, [game, legsWonMap, broadcast]);
-
-  const handlePlayoffUpdate = useCallback((newScores, newCurrentIdx) => {
-    if (newScores) setPlayoffScores(newScores);
-    if (typeof newCurrentIdx === 'number') setPlayoffCurrentIdx(newCurrentIdx);
+  const handleChoosePlayoffStyle = useCallback((style) => {
+    const pNum = style === 'bulls' ? 'Bull' : choosePlayoffNumber();
+    setPlayoffStyle(style);
+    setPlayoffNumber(pNum);
     setGame(prev => {
       if (!prev) return prev;
       const updated = {
         ...prev,
-        view: 'playoff',
-        playoffScores: newScores ?? prev.playoffScores,
-        playoffCurrentIdx: typeof newCurrentIdx === 'number' ? newCurrentIdx : (prev.playoffCurrentIdx ?? 0),
+        playoffStyle: style,
+        playoffNumber: pNum,
       };
-      setTimeout(() => broadcast(updated), 0);
+      setTimeout(() => broadcastRef.current?.(updated), 0);
       return updated;
     });
-  }, [broadcast]);
+  }, []);
+
+  const handlePlayoffSubmit = useCallback((scoringPlayerIdx, score) => {
+    setGame(prev => {
+      if (!prev) return prev;
+      const nextScores = { ...prev.playoffScores, [scoringPlayerIdx]: score };
+      const nextSubmitted = { ...prev.playoffSubmitted, [scoringPlayerIdx]: true };
+      setPlayoffScores(nextScores);
+      setPlayoffSubmitted(nextSubmitted);
+
+      const updated = {
+        ...prev,
+        playoffScores: nextScores,
+        playoffSubmitted: nextSubmitted,
+      };
+
+      const participants = updated.playoffPlayers || [];
+      const allDone = participants.length > 0 && participants.every(pi => nextSubmitted[pi]);
+
+      if (allDone) {
+        const scoresArr = participants.map(pi => nextScores[pi] ?? 0);
+        const maxScore = Math.max(...scoresArr);
+        const winners = participants.filter(pi => (nextScores[pi] ?? 0) === maxScore);
+
+        if (winners.length === 1) {
+          const winnerIdx = winners[0];
+          const nextLegsWonMap = { ...updated.legsWonMap };
+          const wName = updated.players[winnerIdx]?.name;
+          if (wName) nextLegsWonMap[wName] = (nextLegsWonMap[wName] || 0) + 1;
+          setLegsWonMap(nextLegsWonMap);
+
+          const updatedPlayers = updated.players.map(p => ({
+            ...p,
+            legsWon: nextLegsWonMap[p.name] || 0,
+          }));
+
+          const marksMap = {};
+          const dartsMap = {};
+          const perfectsMap = {};
+          updatedPlayers.forEach(p => {
+            marksMap[p.name] = getPlayerMarks(p);
+            dartsMap[p.name] = p.darts ?? 0;
+            perfectsMap[p.name] = p.perfectCount ?? 0;
+          });
+          recordGame(updatedPlayers, [winnerIdx], updated.round, marksMap, dartsMap, updated.gameId);
+
+          const fStats = { rounds: updated.round, marksMap, dartsMap, perfectsMap, legsWonMap: nextLegsWonMap };
+          setFinalWinners([winnerIdx]);
+          setFinalStats(fStats);
+          setView('winner');
+
+          const winnerGame = {
+            ...updated,
+            players: updatedPlayers,
+            view: 'winner',
+            finalWinners: [winnerIdx],
+            finalStats: fStats,
+            legsWonMap: nextLegsWonMap,
+            playoffScores: nextScores,
+          };
+          setTimeout(() => broadcastRef.current?.(winnerGame), 0);
+          return winnerGame;
+        } else if (winners.length > 1) {
+          const activeStyle = updated.playoffStyle || playoffStyle;
+          const nextNum = activeStyle === 'bulls' ? 'Bull' : choosePlayoffNumber();
+          const nextRound = (updated.playoffRound || 1) + 1;
+          setPlayoffNumber(nextNum);
+          setPlayoffPlayers(winners);
+          setPlayoffScores({});
+          setPlayoffSubmitted({});
+          setPlayoffRound(nextRound);
+          setView('playoff');
+
+          const tiedGame = {
+            ...updated,
+            view: 'playoff',
+            playoffStyle: activeStyle,
+            playoffNumber: nextNum,
+            playoffPlayers: winners,
+            playoffScores: {},
+            playoffSubmitted: {},
+            playoffRound: nextRound,
+          };
+          setTimeout(() => broadcastRef.current?.(tiedGame), 0);
+          return tiedGame;
+        }
+      }
+
+      setTimeout(() => broadcastRef.current?.(updated), 0);
+      return updated;
+    });
+  }, [playoffStyle]);
+
+  const handlePlayoffComplete = useCallback((winners = [], scores = {}) => {
+    setGame(prev => {
+      if (!prev) return prev;
+      const nextLegsWonMap = { ...(prev.legsWonMap || legsWonMap) };
+      winners.forEach(i => {
+        const wName = prev.players[i]?.name;
+        if (wName) nextLegsWonMap[wName] = (nextLegsWonMap[wName] || 0) + 1;
+      });
+      setLegsWonMap(nextLegsWonMap);
+
+      const updatedPlayers = prev.players.map(p => ({
+        ...p,
+        legsWon: nextLegsWonMap[p.name] || 0,
+      }));
+
+      const marksMap = {};
+      const dartsMap = {};
+      const perfectsMap = {};
+      updatedPlayers.forEach(p => {
+        marksMap[p.name] = getPlayerMarks(p);
+        dartsMap[p.name] = p.darts ?? 0;
+        perfectsMap[p.name] = p.perfectCount ?? 0;
+      });
+      recordGame(updatedPlayers, winners, prev.round, marksMap, dartsMap, prev.gameId);
+
+      const fStats = { rounds: prev.round, marksMap, dartsMap, perfectsMap, legsWonMap: nextLegsWonMap };
+      setFinalWinners(winners);
+      setFinalStats(fStats);
+      setPlayoffScores(scores);
+      setView('winner');
+
+      const updated = {
+        ...prev,
+        players: updatedPlayers,
+        view: 'winner',
+        finalWinners: winners,
+        finalStats: fStats,
+        legsWonMap: nextLegsWonMap,
+        playoffScores: scores,
+      };
+      setTimeout(() => broadcastRef.current?.(updated), 0);
+      return updated;
+    });
+  }, [legsWonMap]);
 
   const handlePlayoffTie = useCallback((tiedPlayers) => {
-    const newNum = choosePlayoffNumber();
-    setPlayoffPlayers(tiedPlayers);
-    setPlayoffScores({});
-    setPlayoffNumber(newNum);
-    setPlayoffCurrentIdx(0);
-    setView('playoff');
     setGame(prev => {
       if (!prev) return prev;
+      const activeStyle = prev.playoffStyle || playoffStyle;
+      const nextNum = activeStyle === 'bulls' ? 'Bull' : choosePlayoffNumber();
+      const nextRound = (prev.playoffRound || 1) + 1;
+      setPlayoffPlayers(tiedPlayers);
+      setPlayoffScores({});
+      setPlayoffSubmitted({});
+      setPlayoffNumber(nextNum);
+      setPlayoffRound(nextRound);
+      setView('playoff');
+
       const updated = {
         ...prev,
         view: 'playoff',
+        playoffStyle: activeStyle,
+        playoffNumber: nextNum,
         playoffPlayers: tiedPlayers,
-        playoffNumber: newNum,
         playoffScores: {},
-        playoffCurrentIdx: 0,
+        playoffSubmitted: {},
+        playoffRound: nextRound,
       };
-      setTimeout(() => broadcast(updated), 0);
+      setTimeout(() => broadcastRef.current?.(updated), 0);
       return updated;
     });
-  }, [broadcast]);
+  }, [playoffStyle]);
 
   // --- Restart ---
   function handleRestart() {
@@ -456,6 +601,7 @@ export default function App() {
     setFinalStats(null);
     setPlayoffScores({});
     setPlayoffNumber(null);
+    setPlayoffStyle(null);
     setPlayoffPlayers([]);
     setRoomCode(null);
     setIsHost(false);
@@ -515,7 +661,9 @@ export default function App() {
           <h1>{winnerNames.join(' & ')} wins!</h1>
           <p>
             {isPlayoff
-              ? `Playoff winner with ${playoffScores[finalWinners[0]]} hit${playoffScores[finalWinners[0]] !== 1 ? 's' : ''}!`
+              ? ((game?.playoffStyle === 'bulls' || playoffStyle === 'bulls')
+                  ? `Bullseye tie-breaker winner with ${playoffScores[finalWinners[0]] ?? 0} bull${playoffScores[finalWinners[0]] !== 1 ? 's' : ''}!`
+                  : `Playoff winner with ${playoffScores[finalWinners[0]] ?? 0} hit${playoffScores[finalWinners[0]] !== 1 ? 's' : ''}!`)
               : 'Closed on the Bullseye!'}
           </p>
         </div>
@@ -556,13 +704,17 @@ export default function App() {
 
         {isPlayoff && (
           <div className="card">
-            <p className="section-title" style={{ marginBottom: '0.5rem' }}>Playoff Scores</p>
+            <p className="section-title" style={{ marginBottom: '0.5rem' }}>
+              {(game?.playoffStyle === 'bulls' || playoffStyle === 'bulls') ? 'Bullseye Tie-Breaker Scores' : 'Playoff Scores'}
+            </p>
             {Object.entries(playoffScores)
               .sort((a, b) => b[1] - a[1])
               .map(([pi, sc]) => (
                 <div key={pi} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0' }}>
                   <span>{game.players[pi]?.name}</span>
-                  <strong style={{ color: 'var(--accent)' }}>{sc}</strong>
+                  <strong style={{ color: 'var(--accent)' }}>
+                    {sc} {(game?.playoffStyle === 'bulls' || playoffStyle === 'bulls') ? 'bull' : 'mark'}{sc !== 1 ? 's' : ''}
+                  </strong>
                 </div>
               ))}
           </div>
@@ -577,9 +729,9 @@ export default function App() {
           </button>
           <button className="btn-secondary" onClick={() => {
             const playerNames = game.players.map(p => p.name);
-            handleRoomStart(playerNames, true);
+            handleRoomStart(playerNames, true, game.tieBreaker);
           }}>
-            🎯 Rematch / Play Again
+            🎯 Next Game / Rematch
           </button>
         </div>
       </div>
@@ -595,12 +747,15 @@ export default function App() {
       <PlayoffScreen
         game={game}
         playoffPlayers={playoffPlayers}
+        playoffStyle={playoffStyle}
         playoffNumber={playoffNumber}
         playoffScores={playoffScores}
-        playoffCurrentIdx={playoffCurrentIdx}
+        playoffSubmitted={playoffSubmitted}
+        playoffRound={playoffRound}
         myPlayerName={myPlayerName}
+        onChoosePlayoffStyle={handleChoosePlayoffStyle}
+        onPlayoffSubmit={handlePlayoffSubmit}
         onPlayoffComplete={handlePlayoffComplete}
-        onPlayoffUpdate={handlePlayoffUpdate}
         onPlayoffTie={handlePlayoffTie}
       />
     );
