@@ -170,11 +170,13 @@ export function recordGame(players, winnerIndices, totalRounds, marksPerPlayer, 
       data.players[name] = { wins: 0, games: [] };
     }
     const isWinner = winnerIndices.includes(i);
-    const marks = marksPerPlayer?.[name] ?? getPlayerMarks(player);
+    const marks = player.finished ? 21 : (marksPerPlayer?.[name] ?? getPlayerMarks(player));
     const darts = dartsPerPlayer?.[name] ?? 0;
     const perfects = player.perfectCount ?? 0;
 
-    const pRounds = player.finished ? (player.finishedRound ?? totalRounds) : totalRounds;
+    const pRounds = player.finished
+      ? (player.finishedRound ?? totalRounds)
+      : (player.roundCompleted || totalRounds);
 
     data.players[name].games.push({
       gameId: gId,

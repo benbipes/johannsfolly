@@ -13,7 +13,7 @@ import { createGame, mergeGameState, getPlayerMarks } from './gameLogic.js';
 import { useGameSync } from './useGameSync.js';
 import { getLoggedInUser, logout, deleteAccount, refreshLoggedUserPresence } from './auth.js';
 import { recordGame } from './leaderboard.js';
-import { playNewRoundSound, reunlockAllAudio } from './audio.js';
+import { playNewRoundSound, reunlockAllAudio, playWeezySound } from './audio.js';
 
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -60,6 +60,30 @@ export default function App() {
   const [legsWonMap, setLegsWonMap] = useState({});
   const [splashRound, setSplashRound] = useState(null);
   const splashTimerRef = useRef(null);
+
+  const [weezySplash, setWeezySplash] = useState(false);
+  const weezySplashTimerRef = useRef(null);
+  const lastWeezyRef = useRef(0);
+
+  const triggerWeezySplash = useCallback(() => {
+    setWeezySplash(true);
+    if (weezySplashTimerRef.current) clearTimeout(weezySplashTimerRef.current);
+    weezySplashTimerRef.current = setTimeout(() => {
+      setWeezySplash(false);
+    }, 3500);
+  }, []);
+
+  const [backoutToast, setBackoutToast] = useState(null);
+  const backoutToastTimerRef = useRef(null);
+  const lastBackoutRef = useRef(0);
+
+  const triggerBackoutToast = useCallback((msg) => {
+    setBackoutToast(msg);
+    if (backoutToastTimerRef.current) clearTimeout(backoutToastTimerRef.current);
+    backoutToastTimerRef.current = setTimeout(() => {
+      setBackoutToast(null);
+    }, 3500);
+  }, []);
 
   const triggerRoundSplash = useCallback((roundNum) => {
     setSplashRound(roundNum);
@@ -131,6 +155,17 @@ export default function App() {
     setGame(prevGame => {
       let mergedGame = mergeGameState(prevGame, remoteGame);
       let needsBroadcast = false;
+
+      if (mergedGame?.weezyPast20 && mergedGame.weezyPast20 > (lastWeezyRef.current || 0)) {
+        lastWeezyRef.current = mergedGame.weezyPast20;
+        playWeezySound();
+        triggerWeezySplash();
+      }
+
+      if (mergedGame?.backout && mergedGame.backout.timestamp > (lastBackoutRef.current || 0)) {
+        lastBackoutRef.current = mergedGame.backout.timestamp;
+        triggerBackoutToast(`↩ ${mergedGame.backout.playerName}'s score was backed out for rescoring.`);
+      }
 
       if (prevGame && mergedGame && mergedGame.round > prevGame.round && mergedGame.view === 'scoring') {
         playNewRoundSound();
@@ -276,6 +311,33 @@ export default function App() {
 
       const playerName = targetPlayer.name;
 
+      // Check if user "Slipster" gets past 20:
+      const isSlipster = playerName && playerName.trim().toLowerCase() === 'slipster';
+      const passed20ThisTurn = isSlipster && targetPlayer.targetIndex === 0 && newTargetIndex > 0;
+      let weezyTimestamp = null;
+      if (passed20ThisTurn) {
+        weezyTimestamp = Date.now();
+        lastWeezyRef.current = weezyTimestamp;
+        playWeezySound();
+        triggerWeezySplash();
+      }
+
+      // Capture player snapshot before this turn so score can be backed out if needed
+      const roundSnapshot = {
+        round: prev.round,
+        targetIndex: targetPlayer.targetIndex,
+        finished: targetPlayer.finished,
+        finishedRound: targetPlayer.finishedRound,
+        roundCompleted: targetPlayer.roundCompleted,
+        lastIsPerfect: targetPlayer.lastIsPerfect,
+        perfectInRound: targetPlayer.perfectInRound,
+        perfectCount: targetPlayer.perfectCount,
+        marks: targetPlayer.marks,
+        darts: targetPlayer.darts,
+        bullsHit: targetPlayer.bullsHit,
+        legsWon: targetPlayer.legsWon,
+      };
+
       // Accumulate per-player stats for leaderboard
       const isFinished = hitBull || Boolean(targetPlayer.finished);
       const newMarks = newTargetIndex + (isFinished ? 1 : 0);
@@ -306,6 +368,7 @@ export default function App() {
           marks: playerMarks,
           darts: (p.darts || 0) + dartsThisTurn,
           bullsHit: (p.bullsHit || 0) + bullsHit,
+          roundSnapshot,
         };
       });
 
@@ -315,7 +378,13 @@ export default function App() {
       // Check if ALL active players have completed the current round
       const roundJustEnded = players.every(p => p.finished || (p.roundCompleted ?? 0) >= prev.round);
       const newRound = roundJustEnded ? prev.round + 1 : prev.round;
-      let advanced = { ...prev, players, currentPlayerIndex: nextPlayerIdx, round: newRound };
+      let advanced = {
+        ...prev,
+        players,
+        currentPlayerIndex: nextPlayerIdx,
+        round: newRound,
+        ...(weezyTimestamp ? { weezyPast20: weezyTimestamp } : {}),
+      };
 
       let nextView = 'scoring';
 
@@ -371,6 +440,7 @@ export default function App() {
           setView('winner');
           advanced = {
             ...advanced,
+            round: prev.round,
             players: updatedPlayers,
             view: 'winner',
             finalWinners: [winnerIdx],
@@ -380,6 +450,7 @@ export default function App() {
             playoffSubmitted: {},
             playoffNumber: null,
             playoffRound: 1,
+            ...(weezyTimestamp ? { weezyPast20: weezyTimestamp } : {}),
           };
         } else if (bullPlayers.length > 1) {
           // Reached playoff! Allow players involved to choose playoff style (random number or add-up bulls)
@@ -393,6 +464,7 @@ export default function App() {
           setView('playoff');
           advanced = {
             ...advanced,
+            round: prev.round,
             view: 'playoff',
             playoffPlayers: bullPlayers,
             playoffStyle: null,
@@ -400,6 +472,7 @@ export default function App() {
             playoffScores: {},
             playoffSubmitted: {},
             playoffRound: 1,
+            ...(weezyTimestamp ? { weezyPast20: weezyTimestamp } : {}),
           };
         }
       }
@@ -413,6 +486,86 @@ export default function App() {
       return advanced;
     });
   }, []);
+
+  // --- Back out a player's score to allow rescoring ---
+  const handleBackOutScore = useCallback((playerIdx) => {
+    setGame(prev => {
+      if (!prev || !prev.players || !prev.players[playerIdx]) return prev;
+      const targetPlayer = prev.players[playerIdx];
+      const snapshot = targetPlayer.roundSnapshot;
+
+      const restoredPlayer = snapshot
+        ? {
+            ...targetPlayer,
+            targetIndex: snapshot.targetIndex,
+            finished: snapshot.finished,
+            finishedRound: snapshot.finishedRound,
+            roundCompleted: snapshot.roundCompleted,
+            lastIsPerfect: snapshot.lastIsPerfect,
+            perfectInRound: snapshot.perfectInRound,
+            perfectCount: snapshot.perfectCount,
+            marks: snapshot.marks,
+            darts: snapshot.darts,
+            bullsHit: snapshot.bullsHit,
+            legsWon: snapshot.legsWon,
+            roundSnapshot: null,
+          }
+        : {
+            ...targetPlayer,
+            roundCompleted: Math.max(0, (targetPlayer.roundCompleted || prev.round) - 1),
+            finished: false,
+            finishedRound: null,
+            roundSnapshot: null,
+          };
+
+      const updatedPlayers = prev.players.map((p, idx) => (idx === playerIdx ? restoredPlayer : p));
+      const targetRound = snapshot ? snapshot.round : Math.max(1, restoredPlayer.roundCompleted + 1);
+
+      if (playerStatsRef.current && playerStatsRef.current[targetPlayer.name]) {
+        playerStatsRef.current[targetPlayer.name] = {
+          marks: restoredPlayer.marks,
+          darts: restoredPlayer.darts,
+          perfects: restoredPlayer.perfectCount,
+        };
+      }
+
+      const backoutTimestamp = Date.now();
+      lastBackoutRef.current = backoutTimestamp;
+      const backoutInfo = {
+        playerIndex: playerIdx,
+        playerName: targetPlayer.name,
+        timestamp: backoutTimestamp,
+      };
+
+      const revertedGame = {
+        ...prev,
+        players: updatedPlayers,
+        round: targetRound,
+        currentPlayerIndex: playerIdx,
+        view: 'scoring',
+        finalWinners: [],
+        finalStats: null,
+        playoffScores: {},
+        playoffSubmitted: {},
+        playoffNumber: null,
+        playoffRound: 1,
+        backout: backoutInfo,
+        updatedAt: backoutTimestamp,
+      };
+
+      setView('scoring');
+      setFinalWinners([]);
+      setFinalStats(null);
+      setPlayoffScores({});
+      setPlayoffSubmitted({});
+      setPlayoffNumber(null);
+      setPlayoffRound(1);
+      triggerBackoutToast(`↩ ${targetPlayer.name}'s score was backed out for rescoring.`);
+
+      setTimeout(() => broadcastRef.current?.(revertedGame), 0);
+      return revertedGame;
+    });
+  }, [triggerBackoutToast]);
 
   const handleChoosePlayoffStyle = useCallback((style) => {
     const pNum = style === 'bulls' ? 'Bull' : choosePlayoffNumber();
@@ -472,15 +625,17 @@ export default function App() {
             dartsMap[p.name] = p.darts ?? 0;
             perfectsMap[p.name] = p.perfectCount ?? 0;
           });
-          recordGame(updatedPlayers, [winnerIdx], updated.round, marksMap, dartsMap, updated.gameId);
+          const regulationRounds = updated.players[winnerIdx]?.finishedRound ?? updated.round ?? 1;
+          recordGame(updatedPlayers, [winnerIdx], regulationRounds, marksMap, dartsMap, updated.gameId);
 
-          const fStats = { rounds: updated.round, marksMap, dartsMap, perfectsMap, legsWonMap: nextLegsWonMap };
+          const fStats = { rounds: regulationRounds, marksMap, dartsMap, perfectsMap, legsWonMap: nextLegsWonMap };
           setFinalWinners([winnerIdx]);
           setFinalStats(fStats);
           setView('winner');
 
           const winnerGame = {
             ...updated,
+            round: regulationRounds,
             players: updatedPlayers,
             view: 'winner',
             finalWinners: [winnerIdx],
@@ -544,9 +699,11 @@ export default function App() {
         dartsMap[p.name] = p.darts ?? 0;
         perfectsMap[p.name] = p.perfectCount ?? 0;
       });
-      recordGame(updatedPlayers, winners, prev.round, marksMap, dartsMap, prev.gameId);
+      const winnerIdx = winners[0];
+      const regulationRounds = (winnerIdx !== undefined ? prev.players[winnerIdx]?.finishedRound : null) ?? prev.round ?? 1;
+      recordGame(updatedPlayers, winners, regulationRounds, marksMap, dartsMap, prev.gameId);
 
-      const fStats = { rounds: prev.round, marksMap, dartsMap, perfectsMap, legsWonMap: nextLegsWonMap };
+      const fStats = { rounds: regulationRounds, marksMap, dartsMap, perfectsMap, legsWonMap: nextLegsWonMap };
       setFinalWinners(winners);
       setFinalStats(fStats);
       setPlayoffScores(scores);
@@ -554,6 +711,7 @@ export default function App() {
 
       const updated = {
         ...prev,
+        round: regulationRounds,
         players: updatedPlayers,
         view: 'winner',
         finalWinners: winners,
@@ -650,14 +808,51 @@ export default function App() {
     );
   }
 
+  const splashOverlay = splashRound !== null && (
+    <div className="new-round-splash-overlay">
+      <div className="new-round-splash-content">
+        {splashRound > 1 && (
+          <div className="new-round-splash-prev-badge">
+            <span>🎯</span>
+            <span>Round {splashRound - 1} Completed</span>
+          </div>
+        )}
+        <h1 className="new-round-splash-title">NEW ROUND</h1>
+        <div className="new-round-splash-number">{splashRound}</div>
+      </div>
+    </div>
+  );
+
+  const weezySplashOverlay = weezySplash && (
+    <div className="weezy-splash-overlay">
+      <div className="weezy-splash-card">
+        <div className="weezy-splash-icon">📣</div>
+        <div className="weezy-splash-title">Weezy passed 20!!!!</div>
+        <div className="weezy-splash-sub">Slipster is moving down the board! 🎯</div>
+      </div>
+    </div>
+  );
+
+  const backoutToastOverlay = backoutToast && (
+    <div className="backout-toast-overlay">
+      <div className="backout-toast-card">
+        <span className="backout-toast-icon">↩</span>
+        <span className="backout-toast-msg">{backoutToast}</span>
+      </div>
+    </div>
+  );
+
   if (view === 'winner') {
     const winnerNames = finalWinners.map(i => game.players[i]?.name).filter(Boolean);
     const isPlayoff = Object.keys(playoffScores).length > 0;
-    const rounds = finalStats?.rounds ?? game.round;
+    const winnerPlayer = finalWinners.length > 0 ? game.players[finalWinners[0]] : null;
+    const rounds = winnerPlayer?.finishedRound ?? finalStats?.rounds ?? game.round ?? 1;
     return (
-      <div className="screen">
-        <div className="winner-screen">
-          <div className="trophy">🏆</div>
+      <>
+        {backoutToastOverlay}
+        <div className="screen">
+          <div className="winner-screen">
+            <div className="trophy">🏆</div>
           <h1>{winnerNames.join(' & ')} wins!</h1>
           <p>
             {isPlayoff
@@ -666,16 +861,23 @@ export default function App() {
                   : `Playoff winner with ${playoffScores[finalWinners[0]] ?? 0} hit${playoffScores[finalWinners[0]] !== 1 ? 's' : ''}!`)
               : 'Closed on the Bullseye!'}
           </p>
+
+          <div className="winner-rounds-badge">
+            <span className="winner-rounds-icon">🎯</span>
+            <span>
+              Game completed in <strong>{rounds} {rounds === 1 ? 'round' : 'rounds'}</strong>{isPlayoff ? ' (+ tie-breaker)' : ''}
+            </span>
+          </div>
         </div>
 
         <div className="card">
           <p className="section-title" style={{ marginBottom: '0.75rem' }}>Final Player Results</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
             {game.players.map((p, idx) => {
-              const pMarks = finalStats?.marksMap?.[p.name] ?? getPlayerMarks(p);
+              const pMarks = p.finished ? 21 : (finalStats?.marksMap?.[p.name] ?? getPlayerMarks(p));
               const pPerfects = finalStats?.perfectsMap?.[p.name] ?? p.perfectCount ?? 0;
               const pLegs = p.legsWon ?? finalStats?.legsWonMap?.[p.name] ?? legsWonMap[p.name] ?? 0;
-              const pRounds = p.finished ? (p.finishedRound ?? rounds) : rounds;
+              const pRounds = p.finished ? (p.finishedRound ?? rounds) : (p.roundCompleted || rounds);
               const pMpr = pRounds > 0 ? (pMarks / pRounds).toFixed(2) : '—';
               const isWinner = finalWinners.includes(idx);
               return (
@@ -684,8 +886,12 @@ export default function App() {
                     <div style={{ fontWeight: 800, fontSize: '1.15rem', color: isWinner ? 'var(--accent)' : 'var(--text)' }}>
                       {isWinner ? '🏆 ' : ''}{p.name}
                     </div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--muted)', fontWeight: 600 }}>
-                      {pMpr} MPR
+                    <div className="final-player-stats-row">
+                      <span className="final-stat-mpr">{pMpr} MPR</span>
+                      <span className="final-stat-dot">•</span>
+                      <span>{pRounds} {pRounds === 1 ? 'round' : 'rounds'}</span>
+                      <span className="final-stat-dot">•</span>
+                      <span>{pMarks}/21 numbers</span>
                     </div>
                   </div>
                   <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.15rem' }}>
@@ -721,6 +927,19 @@ export default function App() {
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.75rem', width: '100%' }}>
+          {finalWinners.length > 0 && (
+            <button
+              className="btn-secondary btn-backout-large"
+              onClick={() => {
+                const winnerPlayer = game.players[finalWinners[0]];
+                if (window.confirm(`Back out ${winnerPlayer?.name || 'winner'}'s score and resume the game?`)) {
+                  handleBackOutScore(finalWinners[0]);
+                }
+              }}
+            >
+              ↩ Back Out Winning Score & Resume Game
+            </button>
+          )}
           <button className="btn-primary" onClick={handleRestart}>
             🏠 Exit to Main Lobby
           </button>
@@ -735,6 +954,7 @@ export default function App() {
           </button>
         </div>
       </div>
+      </>
     );
   }
 
@@ -744,37 +964,38 @@ export default function App() {
 
   if (view === 'playoff') {
     return (
-      <PlayoffScreen
-        game={game}
-        playoffPlayers={playoffPlayers}
-        playoffStyle={playoffStyle}
-        playoffNumber={playoffNumber}
-        playoffScores={playoffScores}
-        playoffSubmitted={playoffSubmitted}
-        playoffRound={playoffRound}
-        myPlayerName={myPlayerName}
-        onChoosePlayoffStyle={handleChoosePlayoffStyle}
-        onPlayoffSubmit={handlePlayoffSubmit}
-        onPlayoffComplete={handlePlayoffComplete}
-        onPlayoffTie={handlePlayoffTie}
-      />
+      <>
+        {backoutToastOverlay}
+        <PlayoffScreen
+          game={game}
+          playoffPlayers={playoffPlayers}
+          playoffStyle={playoffStyle}
+          playoffNumber={playoffNumber}
+          playoffScores={playoffScores}
+          playoffSubmitted={playoffSubmitted}
+          playoffRound={playoffRound}
+          myPlayerName={myPlayerName}
+          onChoosePlayoffStyle={handleChoosePlayoffStyle}
+          onPlayoffSubmit={handlePlayoffSubmit}
+          onPlayoffComplete={handlePlayoffComplete}
+          onPlayoffTie={handlePlayoffTie}
+        />
+      </>
     );
   }
-
-  const splashOverlay = splashRound !== null && (
-    <div className="new-round-splash-overlay">
-      <div className="new-round-splash-content">
-        <h1 className="new-round-splash-title">NEW ROUND</h1>
-        <div className="new-round-splash-number">{splashRound}</div>
-      </div>
-    </div>
-  );
 
   if (view === 'scoreboard') {
     return (
       <>
         {splashOverlay}
-        <Scoreboard game={game} roomCode={roomCode} onClose={() => setView('scoring')} />
+        {weezySplashOverlay}
+        {backoutToastOverlay}
+        <Scoreboard
+          game={game}
+          roomCode={roomCode}
+          onClose={() => setView('scoring')}
+          onBackOutScore={handleBackOutScore}
+        />
       </>
     );
   }
@@ -789,6 +1010,8 @@ export default function App() {
   return (
     <>
       {splashOverlay}
+      {weezySplashOverlay}
+      {backoutToastOverlay}
       <ScoringScreen
         key={`scoring-${activeIdx}-${game.round}`}
         game={game}
@@ -797,6 +1020,7 @@ export default function App() {
         myPlayerName={myPlayerName}
         roomCode={roomCode}
         onTurnComplete={handleTurnComplete}
+        onBackOutScore={handleBackOutScore}
         onShowScoreboard={() => setView('scoreboard')}
         onSync={forceSync}
         onQuit={handleRestart}

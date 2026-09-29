@@ -375,11 +375,51 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .mini-score-target { font-weight: 800; color: var(--accent); font-size: 1.15rem; min-width: 3rem; text-align: right; }
 .mini-score-target.at-bull { color: var(--accent2); }
 
-/* ── Winner screen ──────────────────────────────────────────── */
 .winner-screen { text-align: center; padding: 2rem 1rem; }
 .winner-screen .trophy { font-size: 5.5rem; }
 .winner-screen h1 { font-size: 2.3rem; margin-top: 0.5rem; }
 .winner-screen p { color: var(--muted); margin-top: 0.5rem; font-size: 1.15rem; }
+
+.winner-rounds-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: var(--surface2);
+  border: 1.5px solid var(--accent);
+  color: var(--text);
+  font-size: 1.05rem;
+  font-weight: 700;
+  padding: 0.55rem 1.25rem;
+  border-radius: 20px;
+  margin-top: 1rem;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.25);
+  letter-spacing: 0.3px;
+}
+.winner-rounds-badge strong {
+  color: var(--accent);
+}
+.winner-rounds-icon {
+  font-size: 1.2rem;
+}
+
+.final-player-stats-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 600;
+  margin-top: 0.2rem;
+  flex-wrap: wrap;
+}
+.final-stat-mpr {
+  color: var(--accent);
+  font-weight: 800;
+}
+.final-stat-dot {
+  opacity: 0.5;
+}
 
 /* ── Room Code ────────────────────────────────────────────── */
 .room-code-card { text-align: center; }
@@ -756,6 +796,20 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   gap: 1.25rem;
 }
 
+.new-round-splash-prev-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: rgba(15, 23, 42, 0.08);
+  border: 1.5px solid rgba(15, 23, 42, 0.2);
+  color: #0f172a;
+  font-size: 1.15rem;
+  font-weight: 800;
+  padding: 0.45rem 1.25rem;
+  border-radius: 999px;
+  letter-spacing: 0.5px;
+}
+
 .new-round-splash-title {
   font-size: 2.75rem;
   font-weight: 900;
@@ -786,6 +840,166 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   100% {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+/* ── Weezy Passed 20 Alert Overlay ───────────────────────── */
+.weezy-splash-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  animation: splashFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  pointer-events: none;
+}
+
+.weezy-splash-card {
+  background: linear-gradient(135deg, #1e1b4b 0%, #311042 100%);
+  border: 3px solid #c084fc;
+  box-shadow: 0 0 40px rgba(192, 132, 252, 0.6), 0 20px 50px rgba(0, 0, 0, 0.8);
+  border-radius: 24px;
+  padding: 2rem 2.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  animation: popInBounce 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  max-width: 90vw;
+}
+
+.weezy-splash-icon {
+  font-size: 3.5rem;
+  animation: tiltShake 0.6s infinite ease-in-out;
+}
+
+.weezy-splash-title {
+  font-size: 2rem;
+  font-weight: 900;
+  color: #fbbf24;
+  text-shadow: 0 0 20px rgba(251, 191, 36, 0.6);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.weezy-splash-sub {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+@keyframes popInBounce {
+  0% { transform: scale(0.6); opacity: 0; }
+  70% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes tiltShake {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-10deg) scale(1.1); }
+  75% { transform: rotate(10deg) scale(1.1); }
+}
+
+/* ── Back Out Score Controls ────────────────────────────── */
+.backout-score-btn {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  white-space: nowrap;
+}
+
+.backout-score-btn:hover {
+  background: rgba(245, 158, 11, 0.3);
+  border-color: #f59e0b;
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.backout-score-btn:active {
+  transform: translateY(0);
+}
+
+.btn-backout-large {
+  background: rgba(245, 158, 11, 0.15) !important;
+  border: 2px solid #f59e0b !important;
+  color: #fbbf24 !important;
+  font-weight: 800 !important;
+  padding: 0.75rem 1.25rem !important;
+  border-radius: 12px !important;
+  font-size: 1.05rem !important;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-backout-large:hover {
+  background: rgba(245, 158, 11, 0.3) !important;
+  color: #fff !important;
+  box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+}
+
+/* ── Back Out Toast Overlay ─────────────────────────────── */
+.backout-toast-overlay {
+  position: fixed;
+  top: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 999999;
+  pointer-events: none;
+  animation: slideDownToast 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  max-width: 90vw;
+}
+
+.backout-toast-card {
+  background: rgba(24, 24, 42, 0.95);
+  border: 1.5px solid #f59e0b;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(245, 158, 11, 0.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #fef3c7;
+  padding: 0.65rem 1.2rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: center;
+}
+
+.backout-toast-icon {
+  color: #fbbf24;
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+@keyframes slideDownToast {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -20px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
   }
 }
 

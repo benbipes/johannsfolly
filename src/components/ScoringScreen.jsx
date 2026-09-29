@@ -10,6 +10,7 @@ export default function ScoringScreen({
   myPlayerName,
   roomCode,
   onTurnComplete,
+  onBackOutScore,
   onShowScoreboard,
   onSync,
   onQuit,
@@ -244,9 +245,23 @@ export default function ScoringScreen({
               <p style={{ color: 'var(--accent)', fontWeight: 800, fontSize: '1.3rem', marginTop: '0.35rem' }}>
                 {activePlayer.name}
               </p>
+              <div className="winner-rounds-badge" style={{ marginTop: '0.85rem', marginBottom: '0.35rem' }}>
+                <span className="winner-rounds-icon">🎯</span>
+                <span>Round <strong>{game.round}</strong> Completed</span>
+              </div>
               <p style={{ color: 'var(--muted)', fontSize: '1.05rem', marginTop: '0.75rem' }}>
                 Waiting for remaining players to submit Round {game.round}… ({submittedCount} / {game.players.length} ready)
               </p>
+              {onBackOutScore && (
+                <button
+                  type="button"
+                  className="btn-secondary btn-backout-large"
+                  onClick={() => onBackOutScore(selectedIdx)}
+                  style={{ marginTop: '1.25rem' }}
+                >
+                  ↩ Back Out Score & Rescore
+                </button>
+              )}
             </div>
           ) : (
             <>
@@ -350,13 +365,29 @@ export default function ScoringScreen({
 
                     <div className="figma-row-right">
                       {hasScoredThisRound && !p.finished && (
-                        <span className="figma-check-icon">✓</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <span className="figma-check-icon">✓</span>
+                          {onBackOutScore && (
+                            <button
+                              type="button"
+                              className="backout-score-btn"
+                              onClick={() => {
+                                if (window.confirm(`Back out ${p.name}'s score for Round ${game.round} so they can rescore?`)) {
+                                  onBackOutScore(p.originalIndex);
+                                }
+                              }}
+                              title={`Back out ${p.name}'s score for Round ${game.round}`}
+                            >
+                              ↩ Back Out
+                            </button>
+                          )}
+                        </div>
                       )}
                       <div className="figma-target-wrap">
                         <span className={`figma-target-val${atBull ? ' at-bull' : ''}`}>
                           {p.finished ? '🎯 Bull' : target}
                         </span>
-                        <span className="figma-mpr-val">{mpr} MPR</span>
+                        <span className="figma-mpr-val">{mpr} MPR • {pRounds} {pRounds === 1 ? 'rnd' : 'rnds'}</span>
                       </div>
                     </div>
                   </div>

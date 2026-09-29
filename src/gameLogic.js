@@ -16,6 +16,7 @@ export function createPlayer(name, legsWon = 0) {
     darts: 0,
     bullsHit: 0,
     legsWon: legsWon || 0,
+    roundSnapshot: null,
   };
 }
 
@@ -96,12 +97,12 @@ export function nextPlayer(game) {
  */
 export function getPlayerMarks(player) {
   if (!player) return 0;
-  const baseMarks = player.targetIndex ?? 0;
-  const finishedBonus = player.finished ? 1 : 0;
+  if (player.finished) return 21;
+  const baseMarks = Math.min(player.targetIndex ?? 0, BULL_INDEX);
   if (typeof player.marks === 'number' && player.marks > 0) {
-    return Math.max(player.marks, baseMarks + finishedBonus);
+    return Math.min(Math.max(player.marks, baseMarks), 20);
   }
-  return baseMarks + finishedBonus;
+  return baseMarks;
 }
 
 /**
@@ -128,10 +129,13 @@ export function mergePlayerState(localP, remoteP) {
   }
 
   const targetIndex = Math.max(localP.targetIndex ?? 0, remoteP.targetIndex ?? 0);
-  const marks = Math.max(
-    localP.marks ?? 0,
-    remoteP.marks ?? 0,
-    targetIndex + (isFinished ? 1 : 0)
+  const marks = isFinished ? 21 : Math.min(
+    Math.max(
+      localP.marks ?? 0,
+      remoteP.marks ?? 0,
+      targetIndex
+    ),
+    20
   );
 
   return {
@@ -146,6 +150,7 @@ export function mergePlayerState(localP, remoteP) {
     darts: Math.max(localP.darts ?? 0, remoteP.darts ?? 0),
     bullsHit: Math.max(localP.bullsHit ?? 0, remoteP.bullsHit ?? 0),
     legsWon: Math.max(localP.legsWon ?? 0, remoteP.legsWon ?? 0),
+    roundSnapshot: baseP.roundSnapshot || remoteP.roundSnapshot || localP.roundSnapshot || null,
   };
 }
 
@@ -170,6 +175,11 @@ export function mergeGameState(localGame, remoteGame) {
     }
   }
 
+  const localBackoutTime = localGame.backout?.timestamp || 0;
+  const remoteBackoutTime = remoteGame.backout?.timestamp || 0;
+  const isRemoteBackoutNewer = remoteBackoutTime > localBackoutTime;
+  const isLocalBackoutNewer = localBackoutTime > remoteBackoutTime;
+
   const playerMap = new Map();
 
   // Process local players
@@ -184,8 +194,17 @@ export function mergeGameState(localGame, remoteGame) {
   (remoteGame.players || []).forEach(p => {
     if (p.name) {
       const key = p.name.trim().toLowerCase();
+      const isBackedOutOnRemote = isRemoteBackoutNewer && (
+        remoteGame.backout?.playerName && remoteGame.backout.playerName.trim().toLowerCase() === key
+      );
       if (playerMap.has(key)) {
-        playerMap.set(key, mergePlayerState(playerMap.get(key), p));
+        if (isBackedOutOnRemote) {
+          playerMap.set(key, { ...p });
+        } else if (isLocalBackoutNewer && (localGame.backout?.playerName && localGame.backout.playerName.trim().toLowerCase() === key)) {
+          // Keep local backed-out player state
+        } else {
+          playerMap.set(key, mergePlayerState(playerMap.get(key), p));
+        }
       } else {
         playerMap.set(key, { ...p });
       }
@@ -196,23 +215,39 @@ export function mergeGameState(localGame, remoteGame) {
 
   const localRound = localGame.round ?? 1;
   const remoteRound = remoteGame.round ?? 1;
-  let currentRound = Math.max(localRound, remoteRound);
+  let currentRound = isRemoteBackoutNewer
+    ? (remoteGame.round ?? 1)
+    : isLocalBackoutNewer
+    ? (localGame.round ?? 1)
+    : Math.max(localRound, remoteRound);
+
+  // View state precedence
+  let view = isRemoteBackoutNewer
+    ? (remoteGame.view || 'scoring')
+    : isLocalBackoutNewer
+    ? (localGame.view || 'scoring')
+    : (remoteGame.view || localGame.view || 'scoring');
+
+  if (!isRemoteBackoutNewer && !isLocalBackoutNewer) {
+    if (localGame.view === 'winner' || remoteGame.view === 'winner') {
+      view = 'winner';
+    } else if (localGame.view === 'playoff' || remoteGame.view === 'playoff') {
+      view = 'playoff';
+    }
+  }
+
+  const isGameOverOrPlayoff = view === 'winner' || view === 'playoff' ||
+    localGame.view === 'winner' || remoteGame.view === 'winner' ||
+    localGame.view === 'playoff' || remoteGame.view === 'playoff' ||
+    mergedPlayers.some(p => p.finished);
 
   // Check if ALL non-finished players have completed currentRound
   const allCompletedCurrentRound = mergedPlayers.length > 0 && mergedPlayers.every(
     p => p.finished || (p.roundCompleted ?? 0) >= currentRound
   );
 
-  if (allCompletedCurrentRound) {
+  if (allCompletedCurrentRound && !isGameOverOrPlayoff) {
     currentRound += 1;
-  }
-
-  // View state precedence
-  let view = remoteGame.view || localGame.view || 'scoring';
-  if (localGame.view === 'winner' || remoteGame.view === 'winner') {
-    view = 'winner';
-  } else if (localGame.view === 'playoff' || remoteGame.view === 'playoff') {
-    view = 'playoff';
   }
 
   // Simultaneous playoff merge
@@ -261,6 +296,15 @@ export function mergeGameState(localGame, remoteGame) {
     ...localGame.legsWonMap,
   };
 
+  const finalWinners = isRemoteBackoutNewer
+    ? (remoteGame.finalWinners || [])
+    : ((remoteGame.finalWinners?.length ? remoteGame.finalWinners : localGame.finalWinners) || []);
+  const finalStats = isRemoteBackoutNewer
+    ? (remoteGame.finalStats || null)
+    : (remoteGame.finalStats || localGame.finalStats || null);
+  const weezyPast20 = Math.max(localGame.weezyPast20 ?? 0, remoteGame.weezyPast20 ?? 0) || null;
+  const backout = isRemoteBackoutNewer ? remoteGame.backout : (localGame.backout || null);
+
   return {
     ...remoteGame,
     ...localGame,
@@ -278,6 +322,10 @@ export function mergeGameState(localGame, remoteGame) {
     playoffNumber,
     playoffPlayers,
     legsWonMap,
+    finalWinners,
+    finalStats,
+    weezyPast20,
+    backout,
   };
 }
 

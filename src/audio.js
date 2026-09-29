@@ -32,6 +32,7 @@ const SOUND_FILES = {
   mf5: 'audio/mf5.m4a',
   mf6: 'audio/mf6.m4a',
   mf7: 'audio/mf7.m4a',
+  weezy: 'audio/weezy.m4a',
 };
 
 let soundEnabled = true;
@@ -101,6 +102,7 @@ export function preloadAllMp3s() {
   preloadMp3Buffer('newround1', 'audio/newroundexcited.mp3');
   preloadMp3Buffer('newround2', 'audio/newroundsad.mp3');
   preloadMp3Buffer('newround3', 'audio/newround.mp3');
+  preloadMp3Buffer('weezy_wav', 'audio/weezy.wav');
 }
 
 export function unlockAudio() {
@@ -181,6 +183,24 @@ export function playRandomMissSwear() {
   const keys = ['mf1', 'mf2', 'mf3', 'mf4', 'mf5', 'mf6', 'mf7'];
   const key = keys[Math.floor(Math.random() * keys.length)];
   playSound(key);
+}
+
+export function playWeezySound() {
+  if (!soundEnabled) return;
+  unlockAudio();
+  const played = playBuffer('weezy') || playBuffer('weezy_wav');
+  if (!played) {
+    playSynthSound('win');
+    try {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance('Weezy passed 20!');
+        utter.rate = 1.05;
+        utter.pitch = 1.15;
+        window.speechSynthesis.speak(utter);
+      }
+    } catch { /* ignore */ }
+  }
 }
 
 function playSynthSound(name) {

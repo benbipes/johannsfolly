@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { TARGET_SEQUENCE, BULL_INDEX, getPlayerMarks } from '../gameLogic.js';
 
-export default function Scoreboard({ game, roomCode, onClose }) {
+export default function Scoreboard({ game, roomCode, onClose, onBackOutScore }) {
   const [copiedCode, setCopiedCode] = useState(false);
 
   async function handleCopyRoomCode() {
@@ -82,8 +82,24 @@ export default function Scoreboard({ game, roomCode, onClose }) {
                   {player.finished ? '🎯 Bull' : target}
                 </span>
                 <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 600 }}>
-                  {mpr} MPR
+                  {mpr} MPR • {pRounds} {pRounds === 1 ? 'rnd' : 'rnds'}
                 </span>
+                {onBackOutScore && (player.roundCompleted ?? 0) >= game.round && !player.finished && (
+                  <button
+                    type="button"
+                    className="backout-score-btn"
+                    style={{ marginTop: '0.25rem' }}
+                    onClick={() => {
+                      if (window.confirm(`Back out ${player.name}'s score for Round ${game.round} so they can rescore?`)) {
+                        onBackOutScore(player.originalIndex);
+                        onClose?.();
+                      }
+                    }}
+                    title={`Back out ${player.name}'s score`}
+                  >
+                    ↩ Back Out
+                  </button>
+                )}
               </div>
             </div>
           );
