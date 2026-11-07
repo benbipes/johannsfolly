@@ -54,6 +54,55 @@ describe('player names', () => {
     expect(entries[0].lastGame.gameId).toBe('g3');
   });
 
+  it('adds merged names together under the name to keep', () => {
+    const stored = {
+      players: {
+        Slip: {
+          games: [
+            { gameId: 'g1', date: '2026-01-01', won: true, rounds: 10, totalMarks: 21 },
+            { gameId: 'g2', date: '2026-02-01', won: false, rounds: 10, totalMarks: 10 },
+          ],
+        },
+        Slipster: { games: [{ gameId: 'g3', date: '2026-03-01', won: true, rounds: 10, totalMarks: 21 }] },
+      },
+      recordedIds: {},
+    };
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(stored));
+
+    const entries = getLeaderboard();
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ name: 'Slipster', games: 3, wins: 2 });
+    expect(JSON.parse(localStorage.getItem(HISTORY_KEY))).toEqual(stored);
+  });
+
+  it('combines John into Johann', () => {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify({
+      players: {
+        Johann: { games: [{ gameId: 'g1', date: '2026-01-01', won: true, rounds: 10, totalMarks: 21 }] },
+        John: { games: [{ gameId: 'g2', date: '2026-02-01', won: false, rounds: 10, totalMarks: 10 }] },
+      },
+      recordedIds: {},
+    }));
+
+    const entries = getLeaderboard();
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ name: 'Johann', games: 2, wins: 1 });
+    expect(findKnownName('john')).toBe('Johann');
+  });
+
+  it('shows the name to keep even if only the old name has games', () => {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify({
+      players: { Slip: { games: [{ gameId: 'g1', date: '2026-01-01', won: true, rounds: 10, totalMarks: 21 }] } },
+      recordedIds: {},
+    }));
+
+    expect(getLeaderboard()[0].name).toBe('Slipster');
+    expect(findKnownName('slip')).toBe('Slipster');
+    expect(findKnownName('SLIPSTER')).toBe('Slipster');
+  });
+
   it('finds a known name whatever the capitalization', () => {
     expect(findKnownName(' aLEX ')).toBe('Alex');
     expect(findKnownName('Johann')).toBeNull();

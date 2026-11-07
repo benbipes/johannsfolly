@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToString } from 'react-dom/server';
+import CodeScreen from './CodeScreen.jsx';
 import NameScreen from './NameScreen.jsx';
 import Lobby from './Lobby.jsx';
 
@@ -30,6 +31,15 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+describe('CodeScreen', () => {
+  it('asks for the group code and shows no player names', () => {
+    const html = renderToString(<CodeScreen onUnlock={() => {}} />);
+
+    expect(html).toContain('Enter the group code');
+    expect(html).not.toContain('Slipster');
+  });
 });
 
 describe('NameScreen', () => {

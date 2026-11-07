@@ -100,6 +100,18 @@ describe('savePlayerName', () => {
     expect(savePlayerName(' Johann ')).toEqual({ ok: true, name: 'Johann' });
   });
 
+  it('moves a merged name to the name to keep', () => {
+    setStorage();
+
+    expect(savePlayerName('slip')).toEqual({ ok: true, name: 'Slipster' });
+  });
+
+  it('updates a phone already saved under a merged name', () => {
+    setStorage({ 'jf:player_name': 'Slip' });
+
+    expect(getSavedName()).toBe('Slipster');
+  });
+
   it('rejects names that are too short or too long', () => {
     expect(savePlayerName('J').ok).toBe(false);
     expect(savePlayerName('x'.repeat(21)).ok).toBe(false);

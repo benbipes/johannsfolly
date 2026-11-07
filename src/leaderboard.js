@@ -7,6 +7,22 @@ import { getPlayerMarks } from './gameLogic.js';
 const STORAGE_KEY = 'jf:leaderboard';
 const CHANNEL_NAME = 'jf:leaderboard';
 
+// Other names a player has used, in lowercase, mapped to the name to show.
+// Games stay stored under their original names, so a merge can be undone.
+const NAME_ALIASES = {
+  slip: 'Slipster',
+  john: 'Johann',
+};
+
+/** Returns the name a player should go by, following any merged names. */
+export function preferredName(name) {
+  return NAME_ALIASES[name?.trim().toLowerCase()] ?? name;
+}
+
+function playerKey(name) {
+  return preferredName(name)?.trim().toLowerCase() ?? '';
+}
+
 function loadRaw() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -204,19 +220,20 @@ export function getLeaderboard() {
   const data = loadRaw();
   const playersMap = data.players || data;
 
-  // Spellings that differ only by capitalization are the same player.
+  // Merged names, and spellings that differ only by capitalization, are the same player.
   const playersByKey = new Map();
   Object.entries(playersMap)
     .filter(([name]) => name && name !== 'players' && name !== 'recordedIds')
     .forEach(([name, stats]) => {
-      const key = name.trim().toLowerCase();
+      const key = playerKey(name);
+      const displayName = preferredName(name);
       const games = stats.games ?? [];
       const existing = playersByKey.get(key);
       if (!existing) {
-        playersByKey.set(key, { name, games: [...games] });
+        playersByKey.set(key, { name: displayName, games: [...games] });
         return;
       }
-      if (games.length > existing.games.length) existing.name = name;
+      if (games.length > existing.games.length) existing.name = displayName;
       existing.games = [...existing.games, ...games]
         .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''));
     });
@@ -246,9 +263,9 @@ export function getLeaderboard() {
 
 /** Returns the leaderboard's spelling of a name, ignoring capitalization, or null if it's new. */
 export function findKnownName(name) {
-  const key = name?.trim().toLowerCase();
+  const key = playerKey(name);
   if (!key) return null;
-  return getLeaderboard().find(entry => entry.name.trim().toLowerCase() === key)?.name ?? null;
+  return getLeaderboard().find(entry => playerKey(entry.name) === key)?.name ?? null;
 }
 
 /**

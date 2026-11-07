@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import './index.css';
 
+import CodeScreen from './components/CodeScreen.jsx';
 import NameScreen from './components/NameScreen.jsx';
 import Lobby from './components/Lobby.jsx';
 import RoomLobby from './components/RoomLobby.jsx';
@@ -12,6 +13,7 @@ import LeaderboardView from './components/Leaderboard.jsx';
 import { createGame, mergeGameState, getPlayerMarks } from './gameLogic.js';
 import { useGameSync } from './useGameSync.js';
 import { getSavedName, forgetName, refreshLoggedUserPresence } from './auth.js';
+import { isUnlocked } from './groupCode.js';
 import { recordGame, clearCacheKeepHistory } from './leaderboard.js';
 import { playNewRoundSound, reunlockAllAudio, playWeezySound } from './audio.js';
 
@@ -27,6 +29,7 @@ function choosePlayoffNumber() {
 }
 
 export default function App() {
+  const [unlocked, setUnlocked] = useState(isUnlocked);
   const [loggedInUser, setLoggedInUser] = useState(() => getSavedName());
   const [roomCode, setRoomCode] = useState(() => {
     try { return sessionStorage.getItem('jf:active_roomCode') || null; } catch { return null; }
@@ -768,6 +771,10 @@ export default function App() {
   }
 
   // ---- Render ----
+
+  if (!unlocked) {
+    return <CodeScreen onUnlock={() => setUnlocked(true)} />;
+  }
 
   if (!loggedInUser) {
     return <NameScreen onDone={(name) => setLoggedInUser(name)} />;

@@ -1,5 +1,5 @@
 import { getNetworkLoggedUsers, publishNetworkPresence } from './networkSync.js';
-import { findKnownName } from './leaderboard.js';
+import { findKnownName, preferredName } from './leaderboard.js';
 
 const NAME_KEY = 'jf:player_name';
 const OLD_SESSION_KEY = 'jf:session_v4';
@@ -109,7 +109,7 @@ export function getLoggedUsers() {
 /** Returns this device's player name, or null if none has been chosen. */
 export function getSavedName() {
   try {
-    return localStorage.getItem(NAME_KEY);
+    return preferredName(localStorage.getItem(NAME_KEY));
   } catch {
     return null;
   }
@@ -131,7 +131,7 @@ export function savePlayerName(input) {
     return { ok: false, error: `Name must be ${MAX_NAME_LENGTH} characters or less.` };
   }
 
-  const name = knownName ?? typed;
+  const name = knownName ?? preferredName(typed);
   try {
     localStorage.setItem(NAME_KEY, name);
   } catch { /* ignore */ }
