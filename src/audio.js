@@ -203,6 +203,20 @@ export function playWeezySound() {
   }
 }
 
+// A high, quick, chirpy little robot: raised speech followed by an electronic chirp.
+export function playRobotCheer() {
+  if (!soundEnabled) return;
+  try {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance('Yay! You are so cool!');
+    utter.pitch = 1.7;
+    utter.rate = 1.15;
+    utter.onend = () => playSynthSound('robotchirp');
+    window.speechSynthesis.speak(utter);
+  } catch { /* ignore */ }
+}
+
 function playSynthSound(name) {
   try {
     const ctx = getAudioContext();
@@ -282,6 +296,21 @@ function playSynthSound(name) {
         gain.connect(ctx.destination);
         osc.start(ctx.currentTime + i * 0.08);
         osc.stop(ctx.currentTime + i * 0.08 + 0.35);
+      });
+    } else if (name === 'robotchirp') {
+      [1320, 1760, 1175, 2093].forEach((freq, i) => {
+        const start = ctx.currentTime + i * 0.07;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(freq, start);
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.25, start + 0.05);
+        gain.gain.setValueAtTime(0.12, start);
+        gain.gain.exponentialRampToValueAtTime(0.01, start + 0.06);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + 0.06);
       });
     } else if (name === 'win') {
       [523.25, 659.25, 783.99, 1046.50, 1318.51].forEach((freq, i) => {
