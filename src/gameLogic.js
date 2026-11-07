@@ -155,6 +155,56 @@ export function mergePlayerState(localP, remoteP) {
 }
 
 /**
+ * Ends the game when a merge completes a round in which a player closed Bull.
+ * handleTurnComplete only sees the round end if its device already has every other
+ * turn, so turns submitted at the same moment have to be resolved here instead.
+ */
+function resolveCompletedRound(game) {
+  if (game.view === 'winner' || game.view === 'playoff' || game.finalWinners?.length > 0) {
+    return game;
+  }
+
+  const { players, round } = game;
+  const roundComplete = players.length > 0 && players.every(
+    p => p.finished || (p.roundCompleted ?? 0) >= round
+  );
+  const finishedPlayers = players.flatMap((p, i) => (p.finished ? [i] : []));
+  if (!roundComplete || finishedPlayers.length === 0) {
+    return game;
+  }
+
+  const resetPlayoff = { playoffScores: {}, playoffSubmitted: {}, playoffNumber: null, playoffRound: 1 };
+
+  if (finishedPlayers.length > 1) {
+    return { ...game, ...resetPlayoff, view: 'playoff', playoffPlayers: finishedPlayers, playoffStyle: null };
+  }
+
+  const winnerIdx = finishedPlayers[0];
+  const winnerName = players[winnerIdx].name;
+  const legsWonMap = { ...game.legsWonMap, [winnerName]: (game.legsWonMap?.[winnerName] || 0) + 1 };
+  const updatedPlayers = players.map(p => ({ ...p, legsWon: legsWonMap[p.name] || 0 }));
+
+  const marksMap = {};
+  const dartsMap = {};
+  const perfectsMap = {};
+  updatedPlayers.forEach(p => {
+    marksMap[p.name] = getPlayerMarks(p);
+    dartsMap[p.name] = p.darts ?? 0;
+    perfectsMap[p.name] = p.perfectCount ?? 0;
+  });
+
+  return {
+    ...game,
+    ...resetPlayoff,
+    players: updatedPlayers,
+    view: 'winner',
+    finalWinners: [winnerIdx],
+    finalStats: { rounds: round, marksMap, dartsMap, perfectsMap, legsWonMap },
+    legsWonMap,
+  };
+}
+
+/**
  * Intelligently merges local and remote game states to prevent race conditions or dropped turns.
  */
 export function mergeGameState(localGame, remoteGame) {
@@ -305,7 +355,7 @@ export function mergeGameState(localGame, remoteGame) {
   const weezyPast20 = Math.max(localGame.weezyPast20 ?? 0, remoteGame.weezyPast20 ?? 0) || null;
   const backout = isRemoteBackoutNewer ? remoteGame.backout : (localGame.backout || null);
 
-  return {
+  return resolveCompletedRound({
     ...remoteGame,
     ...localGame,
     gameId: localGame.gameId || remoteGame.gameId,
@@ -326,6 +376,6 @@ export function mergeGameState(localGame, remoteGame) {
     finalStats,
     weezyPast20,
     backout,
-  };
+  });
 }
 
