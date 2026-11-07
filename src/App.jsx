@@ -88,12 +88,12 @@ export default function App() {
     }, 3500);
   }, []);
 
-  const triggerRoundSplash = useCallback((roundNum) => {
+  const triggerRoundSplash = useCallback((roundNum, durationMs = 2000) => {
     setSplashRound(roundNum);
     if (splashTimerRef.current) clearTimeout(splashTimerRef.current);
     splashTimerRef.current = setTimeout(() => {
       setSplashRound(null);
-    }, 2000);
+    }, durationMs);
   }, []);
 
   // Check URL query params for manual cache reset (?reset=1 or ?clear=1)
@@ -397,14 +397,13 @@ export default function App() {
           .map(({ i }) => i);
 
         if (bullPlayers.length === 0) {
-          const triggerNextRound = () => {
-            playNewRoundSound();
-            triggerRoundSplash(newRound);
-          };
+          // The round has already moved on, so cover the screen now. Only the sound waits,
+          // to let a special sound finish first.
+          triggerRoundSplash(newRound, 2000 + soundDelayMs);
           if (soundDelayMs > 0) {
-            setTimeout(triggerNextRound, soundDelayMs);
+            setTimeout(playNewRoundSound, soundDelayMs);
           } else {
-            triggerNextRound();
+            playNewRoundSound();
           }
         }
 
