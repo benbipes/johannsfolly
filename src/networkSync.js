@@ -10,7 +10,7 @@ const TOPIC_PRESENCE = 'jf/v1/lobby/presence';
 const TOPIC_ROOMS = 'jf/v1/lobby/rooms';
 const TOPIC_ROOM_PREFIX = 'jf/v1/room/';
 const TOPIC_LEADERBOARD = 'jf/v1/leaderboard';
-const TOPIC_ACCOUNTS = 'jf/v4/accounts';
+const OLD_ACCOUNT_TOPICS = ['jf/v1/accounts', 'jf/v2/accounts', 'jf/v3/accounts', 'jf/v4/accounts'];
 
 const PRESENCE_TTL_MS = 20000;
 const ROOM_TTL_MS = 20000;
@@ -25,7 +25,6 @@ const networkUsers = new Map();
 const networkRooms = new Map();
 const roomSubscribers = new Map();
 const leaderboardSubscribers = new Set();
-const accountSubscribers = new Set();
 
 function encodeUtf8(str) {
   return new TextEncoder().encode(str);
@@ -108,11 +107,9 @@ function handleIncomingMessage(bytes) {
     sendSubscribe(TOPIC_PRESENCE);
     sendSubscribe(TOPIC_ROOMS);
     sendSubscribe(TOPIC_LEADERBOARD);
-    sendSubscribe(TOPIC_ACCOUNTS);
     sendSubscribe(`${TOPIC_ROOM_PREFIX}+`);
-    sendPublish('jf/v1/accounts', JSON.stringify({ type: 'accounts_sync', accounts: {} }), true);
-    sendPublish('jf/v2/accounts', JSON.stringify({ type: 'accounts_sync', accounts: {} }), true);
-    sendPublish('jf/v3/accounts', JSON.stringify({ type: 'accounts_sync', accounts: {} }), true);
+    // An empty retained message tells the broker to delete what it has stored.
+    OLD_ACCOUNT_TOPICS.forEach(topic => sendPublish(topic, '', true));
     return;
   }
 
@@ -154,8 +151,6 @@ function handleIncomingMessage(bytes) {
         }
       } else if (topic === TOPIC_LEADERBOARD) {
         leaderboardSubscribers.forEach(cb => cb(msg));
-      } else if (topic === TOPIC_ACCOUNTS) {
-        accountSubscribers.forEach(cb => cb(msg));
       } else if (topic.startsWith(TOPIC_ROOM_PREFIX)) {
         const roomCode = topic.slice(TOPIC_ROOM_PREFIX.length);
         const callbacks = roomSubscribers.get(roomCode);
@@ -288,18 +283,6 @@ export function subscribeNetworkLeaderboard(callback) {
   leaderboardSubscribers.add(callback);
   return () => {
     leaderboardSubscribers.delete(callback);
-  };
-}
-
-export function publishNetworkAccounts(eventObj, retain = true) {
-  sendPublish(TOPIC_ACCOUNTS, JSON.stringify(eventObj), retain);
-}
-
-export function subscribeNetworkAccounts(callback) {
-  if (typeof callback !== 'function') return () => {};
-  accountSubscribers.add(callback);
-  return () => {
-    accountSubscribers.delete(callback);
   };
 }
 

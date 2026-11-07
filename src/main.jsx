@@ -1,6 +1,7 @@
 import React, { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
+import { clearCacheKeepHistory } from './leaderboard.js'
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -26,7 +27,7 @@ class ErrorBoundary extends React.Component {
           </p>
           <button
             style={{ padding: '0.75rem 1.5rem', background: '#f59e0b', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}
-            onClick={() => { localStorage.clear(); sessionStorage.clear(); window.location.reload(); }}
+            onClick={() => { clearCacheKeepHistory(); window.location.reload(); }}
           >
             🔄 Reset App & Reload
           </button>

@@ -204,10 +204,25 @@ export function getLeaderboard() {
   const data = loadRaw();
   const playersMap = data.players || data;
 
-  return Object.entries(playersMap)
+  // Spellings that differ only by capitalization are the same player.
+  const playersByKey = new Map();
+  Object.entries(playersMap)
     .filter(([name]) => name && name !== 'players' && name !== 'recordedIds')
-    .map(([name, stats]) => {
+    .forEach(([name, stats]) => {
+      const key = name.trim().toLowerCase();
       const games = stats.games ?? [];
+      const existing = playersByKey.get(key);
+      if (!existing) {
+        playersByKey.set(key, { name, games: [...games] });
+        return;
+      }
+      if (games.length > existing.games.length) existing.name = name;
+      existing.games = [...existing.games, ...games]
+        .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''));
+    });
+
+  return [...playersByKey.values()]
+    .map(({ name, games }) => {
       const totalMarks = games.reduce((s, g) => s + (g.totalMarks || 0), 0);
       const totalRounds = games.reduce((s, g) => s + (g.rounds || 0), 0);
       const totalPerfects = games.reduce((s, g) => s + (g.totalPerfects || 0), 0);
@@ -229,26 +244,44 @@ export function getLeaderboard() {
     .sort((a, b) => b.wins - a.wins || b.avgMPR - a.avgMPR);
 }
 
-/** Remove all leaderboard data and broadcast reset to all clients. */
-export function clearLeaderboard() {
+/** Returns the leaderboard's spelling of a name, ignoring capitalization, or null if it's new. */
+export function findKnownName(name) {
+  const key = name?.trim().toLowerCase();
+  if (!key) return null;
+  return getLeaderboard().find(entry => entry.name.trim().toLowerCase() === key)?.name ?? null;
+}
+
+/**
+ * Clears this device's cached rooms, games and settings but keeps the leaderboard.
+ * Phones hold the only copies of the game history, so a reset must never remove it.
+ */
+export function clearCacheKeepHistory() {
   try {
-    const emptyData = { players: {}, recordedIds: {} };
-    saveRaw(emptyData);
-    const payload = { type: 'leaderboard_sync', data: emptyData };
-    try {
-      const ch = new BroadcastChannel(CHANNEL_NAME);
-      ch.postMessage(payload);
-      ch.close();
-    } catch { /* ignore */ }
-    publishNetworkLeaderboard(payload);
+    const history = localStorage.getItem(STORAGE_KEY);
+    localStorage.clear();
+    sessionStorage.clear();
+    if (history !== null) localStorage.setItem(STORAGE_KEY, history);
   } catch { /* ignore */ }
 }
 
-/** Clear all leaderboard data AND all local game/room/user cache keys for a fresh start. */
-export function clearAllGameData() {
-  try {
-    clearLeaderboard();
-    localStorage.clear();
-    sessionStorage.clear();
-  } catch { /* ignore */ }
+/** Saves this device's game history as a backup file, using the share sheet on phones. */
+export async function saveHistoryBackup() {
+  const fileName = `johanns-folly-history-${new Date().toISOString().slice(0, 10)}.json`;
+  const file = new File([JSON.stringify(loadRaw(), null, 2)], fileName, { type: 'application/json' });
+
+  if (navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file] });
+      return;
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+    }
+  }
+
+  const url = URL.createObjectURL(file);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
 }

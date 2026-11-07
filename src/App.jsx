@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import './index.css';
 
-import AuthScreen from './components/AuthScreen.jsx';
+import NameScreen from './components/NameScreen.jsx';
 import Lobby from './components/Lobby.jsx';
 import RoomLobby from './components/RoomLobby.jsx';
 import Scoreboard from './components/Scoreboard.jsx';
@@ -11,8 +11,8 @@ import LeaderboardView from './components/Leaderboard.jsx';
 
 import { createGame, mergeGameState, getPlayerMarks } from './gameLogic.js';
 import { useGameSync } from './useGameSync.js';
-import { getLoggedInUser, logout, deleteAccount, refreshLoggedUserPresence } from './auth.js';
-import { recordGame } from './leaderboard.js';
+import { getSavedName, forgetName, refreshLoggedUserPresence } from './auth.js';
+import { recordGame, clearCacheKeepHistory } from './leaderboard.js';
 import { playNewRoundSound, reunlockAllAudio, playWeezySound } from './audio.js';
 
 function generateRoomCode() {
@@ -27,7 +27,7 @@ function choosePlayoffNumber() {
 }
 
 export default function App() {
-  const [loggedInUser, setLoggedInUser] = useState(() => getLoggedInUser());
+  const [loggedInUser, setLoggedInUser] = useState(() => getSavedName());
   const [roomCode, setRoomCode] = useState(() => {
     try { return sessionStorage.getItem('jf:active_roomCode') || null; } catch { return null; }
   });
@@ -99,8 +99,7 @@ export default function App() {
       try {
         const params = new URLSearchParams(window.location.search);
         if (params.has('reset') || params.has('clear')) {
-          localStorage.clear();
-          sessionStorage.clear();
+          clearCacheKeepHistory();
           window.location.href = window.location.origin + window.location.pathname;
         }
       } catch { /* ignore */ }
@@ -771,20 +770,15 @@ export default function App() {
   // ---- Render ----
 
   if (!loggedInUser) {
-    return <AuthScreen onAuth={(name) => setLoggedInUser(name)} />;
+    return <NameScreen onDone={(name) => setLoggedInUser(name)} />;
   }
 
   if (view === 'lobby') {
     return (
       <Lobby
         loggedInUser={loggedInUser}
-        onLogout={() => {
-          logout();
-          setLoggedInUser(null);
-          setMyPlayerName(null);
-        }}
-        onDeleteAccount={() => {
-          deleteAccount();
+        onChangeName={() => {
+          forgetName();
           setLoggedInUser(null);
           setMyPlayerName(null);
         }}

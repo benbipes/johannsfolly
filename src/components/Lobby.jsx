@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getOpenRooms } from '../useGameSync.js';
-import { getLoggedUsers, getLoggedInUserEmail } from '../auth.js';
+import { getLoggedUsers } from '../auth.js';
+import { clearCacheKeepHistory } from '../leaderboard.js';
 import logoImg from '../assets/logo.png';
 
 export default function Lobby({
@@ -9,18 +10,15 @@ export default function Lobby({
   onSolo,
   loggedInUser,
   userName,
-  onLogout,
-  onDeleteAccount,
+  onChangeName,
   onShowLeaderboard,
 }) {
   const currentUser = loggedInUser || userName;
-  const currentEmail = getLoggedInUserEmail();
 
   const [joinCode, setJoinCode] = useState('');
   const [error, setError] = useState('');
   const [availableRooms, setAvailableRooms] = useState(() => getOpenRooms());
   const [loggedUsers, setLoggedUsers] = useState(() => getLoggedUsers());
-  const [showAccountModal, setShowAccountModal] = useState(false);
   const channelRef = useRef(null);
 
   // Listen for room announcements and presence updates from other tabs
@@ -68,12 +66,6 @@ export default function Lobby({
     onJoinRoom(code);
   }
 
-  function handleDeleteAccountConfirm() {
-    if (window.confirm('Are you sure you want to permanently delete your account? All of your saved stats and account data will be permanently removed. This action cannot be undone.')) {
-      onDeleteAccount?.();
-    }
-  }
-
   return (
     <div className="screen">
       <div className="setup-header">
@@ -87,90 +79,14 @@ export default function Lobby({
               <button
                 className="btn-secondary"
                 style={{ padding: '0.25rem 0.65rem', fontSize: '0.8rem' }}
-                onClick={() => setShowAccountModal(true)}
+                onClick={onChangeName}
               >
-                ⚙️ Account
-              </button>
-              <button
-                className="btn-secondary"
-                style={{ padding: '0.25rem 0.65rem', fontSize: '0.8rem' }}
-                onClick={onLogout}
-              >
-                Logout
+                Change name
               </button>
             </div>
-            {currentEmail && (
-              <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
-                {currentEmail}
-              </span>
-            )}
           </div>
         )}
       </div>
-
-      {/* Account Settings / Delete Account Modal */}
-      {showAccountModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.75)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 999,
-          padding: '1rem',
-        }}>
-          <div className="card" style={{ maxWidth: '420px', width: '100%', border: '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ margin: 0, color: 'var(--accent)' }}>Account Settings</h3>
-              <button
-                onClick={() => setShowAccountModal(false)}
-                style={{ background: 'transparent', color: 'var(--muted)', fontSize: '1.2rem', padding: '0.2rem' }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.25rem' }}>
-              <div style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>Display Name:</div>
-              <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{currentUser}</div>
-
-              {currentEmail && (
-                <>
-                  <div style={{ fontSize: '0.9rem', color: 'var(--muted)', marginTop: '0.35rem' }}>Registered Email:</div>
-                  <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{currentEmail}</div>
-                </>
-              )}
-            </div>
-
-            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-              <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: 0 }}>
-                In accordance with Apple Privacy Guidelines, you can permanently delete your account and personal game data at any time.
-              </p>
-              <button
-                className="btn-danger"
-                style={{ width: '100%', padding: '0.65rem', fontSize: '0.95rem' }}
-                onClick={() => {
-                  setShowAccountModal(false);
-                  handleDeleteAccountConfirm();
-                }}
-              >
-                🗑️ Delete Account & Data
-              </button>
-              <button
-                className="btn-secondary"
-                style={{ width: '100%', padding: '0.65rem', fontSize: '0.95rem' }}
-                onClick={() => setShowAccountModal(false)}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="lobby-grid">
         <div className="card">
@@ -270,11 +186,8 @@ export default function Lobby({
           className="btn-secondary"
           style={{ width: '100%', color: 'var(--danger)', borderColor: 'var(--danger)', fontSize: '0.9rem' }}
           onClick={() => {
-            if (window.confirm('Clear all cached rooms, logged users, saved games, and sound settings to start 100% fresh?')) {
-              try {
-                localStorage.clear();
-                sessionStorage.clear();
-              } catch { /* ignore */ }
+            if (window.confirm('Clear all cached rooms, logged users, saved games, and sound settings? Your leaderboard history is kept.')) {
+              clearCacheKeepHistory();
               window.location.reload();
             }
           }}
