@@ -352,7 +352,6 @@ export function mergeGameState(localGame, remoteGame) {
   const finalStats = isRemoteBackoutNewer
     ? (remoteGame.finalStats || null)
     : (remoteGame.finalStats || localGame.finalStats || null);
-  const weezyPast20 = Math.max(localGame.weezyPast20 ?? 0, remoteGame.weezyPast20 ?? 0) || null;
   const backout = isRemoteBackoutNewer ? remoteGame.backout : (localGame.backout || null);
 
   return resolveCompletedRound({
@@ -374,7 +373,6 @@ export function mergeGameState(localGame, remoteGame) {
     legsWonMap,
     finalWinners,
     finalStats,
-    weezyPast20,
     backout,
   });
 }

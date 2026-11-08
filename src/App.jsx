@@ -15,7 +15,7 @@ import { useGameSync } from './useGameSync.js';
 import { getSavedName, forgetName, refreshLoggedUserPresence } from './auth.js';
 import { isUnlocked } from './groupCode.js';
 import { recordGame, clearCacheKeepHistory } from './leaderboard.js';
-import { playNewRoundSound, reunlockAllAudio, playWeezySound } from './audio.js';
+import { playNewRoundSound, reunlockAllAudio } from './audio.js';
 
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -63,18 +63,6 @@ export default function App() {
   const [legsWonMap, setLegsWonMap] = useState({});
   const [splashRound, setSplashRound] = useState(null);
   const splashTimerRef = useRef(null);
-
-  const [weezySplash, setWeezySplash] = useState(false);
-  const weezySplashTimerRef = useRef(null);
-  const lastWeezyRef = useRef(0);
-
-  const triggerWeezySplash = useCallback(() => {
-    setWeezySplash(true);
-    if (weezySplashTimerRef.current) clearTimeout(weezySplashTimerRef.current);
-    weezySplashTimerRef.current = setTimeout(() => {
-      setWeezySplash(false);
-    }, 3500);
-  }, []);
 
   const [backoutToast, setBackoutToast] = useState(null);
   const backoutToastTimerRef = useRef(null);
@@ -157,12 +145,6 @@ export default function App() {
     setGame(prevGame => {
       let mergedGame = mergeGameState(prevGame, remoteGame);
       let needsBroadcast = false;
-
-      if (mergedGame?.weezyPast20 && mergedGame.weezyPast20 > (lastWeezyRef.current || 0)) {
-        lastWeezyRef.current = mergedGame.weezyPast20;
-        playWeezySound();
-        triggerWeezySplash();
-      }
 
       if (mergedGame?.backout && mergedGame.backout.timestamp > (lastBackoutRef.current || 0)) {
         lastBackoutRef.current = mergedGame.backout.timestamp;
@@ -313,17 +295,6 @@ export default function App() {
 
       const playerName = targetPlayer.name;
 
-      // Check if user "Slipster" gets past 20:
-      const isSlipster = playerName && playerName.trim().toLowerCase() === 'slipster';
-      const passed20ThisTurn = isSlipster && targetPlayer.targetIndex === 0 && newTargetIndex > 0;
-      let weezyTimestamp = null;
-      if (passed20ThisTurn) {
-        weezyTimestamp = Date.now();
-        lastWeezyRef.current = weezyTimestamp;
-        playWeezySound();
-        triggerWeezySplash();
-      }
-
       // Capture player snapshot before this turn so score can be backed out if needed
       const roundSnapshot = {
         round: prev.round,
@@ -385,7 +356,6 @@ export default function App() {
         players,
         currentPlayerIndex: nextPlayerIdx,
         round: newRound,
-        ...(weezyTimestamp ? { weezyPast20: weezyTimestamp } : {}),
       };
 
       let nextView = 'scoring';
@@ -451,8 +421,7 @@ export default function App() {
             playoffSubmitted: {},
             playoffNumber: null,
             playoffRound: 1,
-            ...(weezyTimestamp ? { weezyPast20: weezyTimestamp } : {}),
-          };
+              };
         } else if (bullPlayers.length > 1) {
           // Reached playoff! Allow players involved to choose playoff style (random number or add-up bulls)
           nextView = 'playoff';
@@ -473,8 +442,7 @@ export default function App() {
             playoffScores: {},
             playoffSubmitted: {},
             playoffRound: 1,
-            ...(weezyTimestamp ? { weezyPast20: weezyTimestamp } : {}),
-          };
+              };
         }
       }
 
@@ -823,16 +791,6 @@ export default function App() {
     </div>
   );
 
-  const weezySplashOverlay = weezySplash && (
-    <div className="weezy-splash-overlay">
-      <div className="weezy-splash-card">
-        <div className="weezy-splash-icon">📣</div>
-        <div className="weezy-splash-title">Weezy passed 20!!!!</div>
-        <div className="weezy-splash-sub">Slipster is moving down the board! 🎯</div>
-      </div>
-    </div>
-  );
-
   const backoutToastOverlay = backoutToast && (
     <div className="backout-toast-overlay">
       <div className="backout-toast-card">
@@ -988,7 +946,6 @@ export default function App() {
     return (
       <>
         {splashOverlay}
-        {weezySplashOverlay}
         {backoutToastOverlay}
         <Scoreboard
           game={game}
@@ -1010,7 +967,6 @@ export default function App() {
   return (
     <>
       {splashOverlay}
-      {weezySplashOverlay}
       {backoutToastOverlay}
       <ScoringScreen
         key={`scoring-${activeIdx}-${game.round}`}
