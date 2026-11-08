@@ -15,13 +15,6 @@ function getAudioUrl(fileRelativePath) {
 }
 
 const SOUND_FILES = {
-  single: 'audio/single.mp3',
-  double: 'audio/double.mp3',
-  triple: 'audio/triple.mp3',
-  miss: 'audio/miss.mp3',
-  bullseye: 'audio/bullseye.mp3',
-  perfect: 'audio/perfect.mp3',
-  win: 'audio/win.mp3',
   silverlining: 'audio/silverlining.mp3',
   curse: 'audio/curse.mp3',
   onedartatatime: 'audio/onedartatatime.m4a',
@@ -262,19 +255,6 @@ function playSynthSound(name) {
         gain.connect(ctx.destination);
         osc.start(ctx.currentTime + i * 0.08);
         osc.stop(ctx.currentTime + i * 0.08 + 0.35);
-      });
-    } else if (name === 'win') {
-      [523.25, 659.25, 783.99, 1046.50, 1318.51].forEach((freq, i) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.12);
-        gain.gain.setValueAtTime(0.5, ctx.currentTime + i * 0.12);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.12 + 0.45);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(ctx.currentTime + i * 0.12);
-        osc.stop(ctx.currentTime + i * 0.12 + 0.45);
       });
     }
   } catch { /* ignore */ }

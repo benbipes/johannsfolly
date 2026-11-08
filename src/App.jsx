@@ -132,10 +132,6 @@ export default function App() {
     };
   }, [loggedInUser]);
 
-  // Per-player stats accumulated during the current game for leaderboard recording
-  // { [playerName]: { marks: number, darts: number, perfects: number } }
-  const playerStatsRef = useRef({});
-
   const broadcastRef = useRef(null);
 
   // Sync game state across tabs/devices in the same room
@@ -187,7 +183,6 @@ export default function App() {
 
       const isNewGame = prevGame && mergedGame.gameId !== prevGame.gameId;
       if (isNewGame) {
-        playerStatsRef.current = {};
         setPlayoffPlayers([]);
         setPlayoffScores({});
         setPlayoffSubmitted({});
@@ -250,7 +245,6 @@ export default function App() {
 
   function handleSolo(tieBreaker = 'playoff') {
     reunlockAllAudio();
-    playerStatsRef.current = {};
     const newGame = createGame([loggedInUser ?? 'Solo Player'], {}, tieBreaker);
     setGame(newGame);
     setPlayoffPlayers([]);
@@ -272,7 +266,6 @@ export default function App() {
     const newGame = createGame(playerNames, currentLegs, rule);
     setGame(newGame);
     if (!keepLegs) setLegsWonMap({});
-    playerStatsRef.current = {};
     setPlayoffPlayers([]);
     setFinalWinners([]);
     setFinalStats(null);
@@ -293,7 +286,6 @@ export default function App() {
       const targetPlayer = prev.players[scoringPlayerIdx];
       if (!targetPlayer) return prev;
 
-      const playerName = targetPlayer.name;
 
       // Capture player snapshot before this turn so score can be backed out if needed
       const roundSnapshot = {
@@ -311,18 +303,8 @@ export default function App() {
         legsWon: targetPlayer.legsWon,
       };
 
-      // Accumulate per-player stats for leaderboard
       const isFinished = hitBull || Boolean(targetPlayer.finished);
-      const newMarks = newTargetIndex + (isFinished ? 1 : 0);
-      const prevMarks = getPlayerMarks(targetPlayer);
-      const marksThisTurn = Math.max(0, newMarks - prevMarks);
       const dartsThisTurn = allDarts ? allDarts.length : 0;
-      const stats = playerStatsRef.current;
-      stats[playerName] = {
-        marks: (stats[playerName]?.marks ?? 0) + marksThisTurn,
-        darts: (stats[playerName]?.darts ?? 0) + dartsThisTurn,
-        perfects: (stats[playerName]?.perfects ?? 0) + (isPerfect ? 1 : 0),
-      };
 
       // Update current player's progress — finished ONLY when actually hitting Bullseye
       const players = prev.players.map((p, i) => {
@@ -490,13 +472,6 @@ export default function App() {
       const updatedPlayers = prev.players.map((p, idx) => (idx === playerIdx ? restoredPlayer : p));
       const targetRound = snapshot ? snapshot.round : Math.max(1, restoredPlayer.roundCompleted + 1);
 
-      if (playerStatsRef.current && playerStatsRef.current[targetPlayer.name]) {
-        playerStatsRef.current[targetPlayer.name] = {
-          marks: restoredPlayer.marks,
-          darts: restoredPlayer.darts,
-          perfects: restoredPlayer.perfectCount,
-        };
-      }
 
       const backoutTimestamp = Date.now();
       lastBackoutRef.current = backoutTimestamp;
