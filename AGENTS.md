@@ -13,16 +13,16 @@ A multiplayer darts scoring game for phones, built with React, Vite and Capacito
 ## Working in this repo
 
 - Commit straight to `main`, and run `git pull` before starting.
-- Run `npm test` and `npm run lint` before pushing.
+- Run `npm test` and `npm run lint` before pushing. GitHub also runs them, plus the build, on every push to `main` and on pull requests.
 - Put tests next to the code they cover, as `src/<name>.test.js`.
-- `git restore dist/index.html` after building. That file is tracked, so every build shows it as modified. Don't commit it.
 - This repo is public. Keep details of unfixed security problems out of commits, pull requests, issues and docs.
 
 ## Deploying
 
-There is no automatic deploy. `npm run deploy` builds the working folder and force-pushes it to `gh-pages`, replacing the live site.
+There is no automatic deploy. `npm run deploy` builds the site and force-pushes it to `gh-pages`, replacing the live site.
 
-- Deploy only from a clean, up-to-date `main`, and check that nobody else is deploying.
+- The script stops unless you're on `main` with no uncommitted changes and match GitHub's `main`. It then runs the tests and lint before building, and commits as you, using your git name and email.
+- Check that nobody else is deploying at the same time.
 - On Windows, `bash` can point to WSL, so use Git Bash:
   `& "C:\Program Files\Git\bin\bash.exe" scripts/deploy-gh-pages.sh`
 - GitHub Pages treats file names as case-sensitive, but Windows and macOS don't. Paths in code must match the tracked file name exactly.
