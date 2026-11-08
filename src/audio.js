@@ -25,6 +25,8 @@ const SOUND_FILES = {
   mf5: 'audio/mf5.m4a',
   mf6: 'audio/mf6.m4a',
   mf7: 'audio/mf7.m4a',
+  // "Boing oing oing oing" from Pixabay (freesound_community, sound 96948), Pixabay Content License.
+  boing: 'audio/boing.mp3',
 };
 
 let soundEnabled = true;
@@ -260,9 +262,14 @@ function playSynthSound(name) {
   } catch { /* ignore */ }
 }
 
-/** A cartoon spring "boing" for when a dart sticks in the board. */
+/** The "boing" for when a dart sticks in the board. */
 export function playBoing() {
   if (!soundEnabled) return;
+  if (!playBuffer('boing')) playSynthBoing();
+}
+
+// A spring sound made in code, used if the recording hasn't loaded yet.
+function playSynthBoing() {
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
