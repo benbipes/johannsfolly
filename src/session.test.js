@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { loadActiveSession, saveActiveSession } from './session.js';
+import { loadActiveSession, markIntroSeen, saveActiveSession, shouldShowIntro } from './session.js';
 
 function fakeStorage(initial = {}) {
   const items = new Map(Object.entries(initial));
@@ -75,5 +75,17 @@ describe('reloading the page', () => {
     expect(sessionStorage.getItem('jf:active_roomCode')).toBeNull();
     expect(sessionStorage.getItem('jf:active_isHost')).toBeNull();
     expect(loadActiveSession().view).toBe('lobby');
+  });
+});
+
+describe('opening dart throw', () => {
+  it('shows the first time the app opens', () => {
+    expect(shouldShowIntro()).toBe(true);
+  });
+
+  it('does not replay after a reload', () => {
+    markIntroSeen();
+
+    expect(shouldShowIntro()).toBe(false);
   });
 });

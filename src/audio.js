@@ -259,3 +259,50 @@ function playSynthSound(name) {
     }
   } catch { /* ignore */ }
 }
+
+/** A cartoon spring "boing" for when a dart sticks in the board. */
+export function playBoing() {
+  if (!soundEnabled) return;
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // The thunk of the dart landing.
+    const thunk = ctx.createOscillator();
+    const thunkGain = ctx.createGain();
+    thunk.type = 'sine';
+    thunk.frequency.setValueAtTime(150, now);
+    thunk.frequency.exponentialRampToValueAtTime(55, now + 0.09);
+    thunkGain.gain.setValueAtTime(0.6, now);
+    thunkGain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+    thunk.connect(thunkGain);
+    thunkGain.connect(ctx.destination);
+    thunk.start(now);
+    thunk.stop(now + 0.12);
+
+    // The spring: a falling tone with a fast wobble that dies away.
+    const spring = ctx.createOscillator();
+    const springGain = ctx.createGain();
+    const wobble = ctx.createOscillator();
+    const wobbleDepth = ctx.createGain();
+    spring.type = 'triangle';
+    spring.frequency.setValueAtTime(260, now);
+    spring.frequency.exponentialRampToValueAtTime(120, now + 0.8);
+    wobble.type = 'sine';
+    wobble.frequency.setValueAtTime(16, now);
+    wobbleDepth.gain.setValueAtTime(90, now);
+    wobbleDepth.gain.exponentialRampToValueAtTime(4, now + 0.8);
+    wobble.connect(wobbleDepth);
+    wobbleDepth.connect(spring.frequency);
+    springGain.gain.setValueAtTime(0.0001, now);
+    springGain.gain.exponentialRampToValueAtTime(0.5, now + 0.02);
+    springGain.gain.exponentialRampToValueAtTime(0.01, now + 0.85);
+    spring.connect(springGain);
+    springGain.connect(ctx.destination);
+    spring.start(now);
+    wobble.start(now);
+    spring.stop(now + 0.85);
+    wobble.stop(now + 0.85);
+  } catch { /* ignore */ }
+}
