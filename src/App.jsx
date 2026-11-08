@@ -14,6 +14,7 @@ import { createGame, mergeGameState, getPlayerMarks, resultRecordId, voidedRecor
 import { useGameSync } from './useGameSync.js';
 import { getSavedName, forgetName, refreshLoggedUserPresence } from './auth.js';
 import { isUnlocked } from './groupCode.js';
+import { loadActiveSession, saveActiveSession } from './session.js';
 import { recordGame, voidRecord, clearCacheKeepHistory } from './leaderboard.js';
 import { playNewRoundSound, reunlockAllAudio } from './audio.js';
 
@@ -31,27 +32,13 @@ function choosePlayoffNumber() {
 export default function App() {
   const [unlocked, setUnlocked] = useState(isUnlocked);
   const [loggedInUser, setLoggedInUser] = useState(() => getSavedName());
-  const [roomCode, setRoomCode] = useState(() => {
-    try { return sessionStorage.getItem('jf:active_roomCode') || null; } catch { return null; }
-  });
-  const [myPlayerName, setMyPlayerName] = useState(() => {
-    try { return sessionStorage.getItem('jf:active_playerName') || loggedInUser; } catch { return loggedInUser; }
-  });
-  const [view, setView] = useState(() => {
-    try { return sessionStorage.getItem('jf:active_view') || 'lobby'; } catch { return 'lobby'; }
-  });
-  const [game, setGame] = useState(() => {
-    try {
-      const code = sessionStorage.getItem('jf:active_roomCode');
-      if (code) {
-        const stored = localStorage.getItem(`game:${code}`);
-        if (stored) return JSON.parse(stored);
-      }
-    } catch { /* ignore */ }
-    return null;
-  });
+  const [restored] = useState(loadActiveSession);
+  const [roomCode, setRoomCode] = useState(restored.roomCode);
+  const [myPlayerName, setMyPlayerName] = useState(restored.playerName || loggedInUser);
+  const [view, setView] = useState(restored.view);
+  const [game, setGame] = useState(restored.game);
 
-  const [isHost, setIsHost] = useState(false);
+  const [isHost, setIsHost] = useState(restored.isHost);
   const [playoffPlayers, setPlayoffPlayers] = useState([]);
   const [finalWinners, setFinalWinners] = useState([]);
   const [finalStats, setFinalStats] = useState(null); // { rounds, marksMap, dartsMap, perfectsMap }
@@ -99,24 +86,8 @@ export default function App() {
 
   // Session persistence for page refresh recovery
   useEffect(() => {
-    try {
-      if (roomCode) {
-        sessionStorage.setItem('jf:active_roomCode', roomCode);
-      } else {
-        sessionStorage.removeItem('jf:active_roomCode');
-      }
-      if (myPlayerName) {
-        sessionStorage.setItem('jf:active_playerName', myPlayerName);
-      } else {
-        sessionStorage.removeItem('jf:active_playerName');
-      }
-      if (view && view !== 'lobby') {
-        sessionStorage.setItem('jf:active_view', view);
-      } else {
-        sessionStorage.removeItem('jf:active_view');
-      }
-    } catch { /* ignore */ }
-  }, [roomCode, myPlayerName, view]);
+    saveActiveSession({ roomCode, playerName: myPlayerName, view, isHost });
+  }, [roomCode, myPlayerName, view, isHost]);
 
   useEffect(() => {
     if (!loggedInUser) return;

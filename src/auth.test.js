@@ -135,3 +135,14 @@ describe('forgetName', () => {
     expect(localStorage.getItem('jf:leaderboard')).toBe(leaderboard);
   });
 });
+
+describe('reloading mid-game', () => {
+  it('keeps the room and screen this tab was on', () => {
+    setStorage({}, { 'jf:active_roomCode': 'ABCD', 'jf:active_view': 'scoring' });
+
+    removeOldAccountData();
+
+    expect(sessionStorage.getItem('jf:active_roomCode')).toBe('ABCD');
+    expect(sessionStorage.getItem('jf:active_view')).toBe('scoring');
+  });
+});

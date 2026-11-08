@@ -36,7 +36,7 @@ export function removeOldAccountData() {
 
   try {
     removeKeysStartingWith(localStorage, ['jf:accounts', 'jf:session', PRESENCE_PREFIX, 'room-player:']);
-    removeKeysStartingWith(sessionStorage, ['jf:session', 'jf:active_']);
+    removeKeysStartingWith(sessionStorage, ['jf:session']);
   } catch { /* ignore */ }
 }
 
