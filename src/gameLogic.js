@@ -201,7 +201,36 @@ function resolveCompletedRound(game) {
     finalWinners: [winnerIdx],
     finalStats: { rounds: round, marksMap, dartsMap, perfectsMap, legsWonMap },
     legsWonMap,
+    legsBeforeResult: game.legsWonMap ?? {},
   };
+}
+
+/** Identifies one recorded result of a game, so a result that gets backed out can be voided. */
+export function resultRecordId(game) {
+  const seq = game?.resultSeq ?? 0;
+  return seq > 0 ? `${game.gameId}#${seq}` : game?.gameId;
+}
+
+/** Record ids of every earlier result of this game, all of which were backed out. */
+export function voidedRecordIds(game) {
+  const ids = [];
+  for (let seq = 0; seq < (game?.resultSeq ?? 0); seq++) {
+    ids.push(resultRecordId({ gameId: game.gameId, resultSeq: seq }));
+  }
+  return ids;
+}
+
+function playerKey(player) {
+  return player.name.trim().toLowerCase();
+}
+
+// When two phones choose a playoff format for the same playoff round, every phone keeps
+// the same choice, so the players never throw at different targets.
+function pickPlayoffChoice(localGame, remoteGame) {
+  if (!localGame.playoffStyle) return remoteGame;
+  if (!remoteGame.playoffStyle) return localGame;
+  const choiceKey = g => `${g.playoffStyle}|${g.playoffNumber}`;
+  return choiceKey(localGame) <= choiceKey(remoteGame) ? localGame : remoteGame;
 }
 
 /**
@@ -229,35 +258,38 @@ export function mergeGameState(localGame, remoteGame) {
   const remoteBackoutTime = remoteGame.backout?.timestamp || 0;
   const isRemoteBackoutNewer = remoteBackoutTime > localBackoutTime;
   const isLocalBackoutNewer = localBackoutTime > remoteBackoutTime;
+  // The side that has seen the newest backout decides the round, view and results.
+  const backoutSide = isRemoteBackoutNewer ? remoteGame : isLocalBackoutNewer ? localGame : null;
+
+  // When a player was backed out. Older versions of the app only record the newest
+  // backout on the game, so fall back to that.
+  const backedOutAt = (player, game) => {
+    if (player.backoutAt) return player.backoutAt;
+    const name = game.backout?.playerName?.trim().toLowerCase();
+    return name && name === playerKey(player) ? (game.backout.timestamp || 0) : 0;
+  };
 
   const playerMap = new Map();
-
-  // Process local players
   (localGame.players || []).forEach(p => {
-    if (p.name) {
-      const key = p.name.trim().toLowerCase();
-      playerMap.set(key, { ...p });
-    }
+    if (p.name) playerMap.set(playerKey(p), { ...p });
   });
 
-  // Merge remote players
   (remoteGame.players || []).forEach(p => {
-    if (p.name) {
-      const key = p.name.trim().toLowerCase();
-      const isBackedOutOnRemote = isRemoteBackoutNewer && (
-        remoteGame.backout?.playerName && remoteGame.backout.playerName.trim().toLowerCase() === key
-      );
-      if (playerMap.has(key)) {
-        if (isBackedOutOnRemote) {
-          playerMap.set(key, { ...p });
-        } else if (isLocalBackoutNewer && (localGame.backout?.playerName && localGame.backout.playerName.trim().toLowerCase() === key)) {
-          // Keep local backed-out player state
-        } else {
-          playerMap.set(key, mergePlayerState(playerMap.get(key), p));
-        }
-      } else {
-        playerMap.set(key, { ...p });
-      }
+    if (!p.name) return;
+    const key = playerKey(p);
+    const localP = playerMap.get(key);
+    if (!localP) {
+      playerMap.set(key, { ...p });
+      return;
+    }
+    // A backout rolls a player back, so the copy that has seen the newer backout for
+    // this player wins outright instead of merging toward the most progress.
+    const localBackout = backedOutAt(localP, localGame);
+    const remoteBackout = backedOutAt(p, remoteGame);
+    if (remoteBackout > localBackout) {
+      playerMap.set(key, { ...p });
+    } else if (remoteBackout === localBackout) {
+      playerMap.set(key, mergePlayerState(localP, p));
     }
   });
 
@@ -265,20 +297,14 @@ export function mergeGameState(localGame, remoteGame) {
 
   const localRound = localGame.round ?? 1;
   const remoteRound = remoteGame.round ?? 1;
-  let currentRound = isRemoteBackoutNewer
-    ? (remoteGame.round ?? 1)
-    : isLocalBackoutNewer
-    ? (localGame.round ?? 1)
-    : Math.max(localRound, remoteRound);
+  let currentRound = backoutSide ? (backoutSide.round ?? 1) : Math.max(localRound, remoteRound);
 
   // View state precedence
-  let view = isRemoteBackoutNewer
-    ? (remoteGame.view || 'scoring')
-    : isLocalBackoutNewer
-    ? (localGame.view || 'scoring')
+  let view = backoutSide
+    ? (backoutSide.view || 'scoring')
     : (remoteGame.view || localGame.view || 'scoring');
 
-  if (!isRemoteBackoutNewer && !isLocalBackoutNewer) {
+  if (!backoutSide) {
     if (localGame.view === 'winner' || remoteGame.view === 'winner') {
       view = 'winner';
     } else if (localGame.view === 'playoff' || remoteGame.view === 'playoff') {
@@ -287,8 +313,10 @@ export function mergeGameState(localGame, remoteGame) {
   }
 
   const isGameOverOrPlayoff = view === 'winner' || view === 'playoff' ||
-    localGame.view === 'winner' || remoteGame.view === 'winner' ||
-    localGame.view === 'playoff' || remoteGame.view === 'playoff' ||
+    (!backoutSide && (
+      localGame.view === 'winner' || remoteGame.view === 'winner' ||
+      localGame.view === 'playoff' || remoteGame.view === 'playoff'
+    )) ||
     mergedPlayers.some(p => p.finished);
 
   // Check if ALL non-finished players have completed currentRound
@@ -300,58 +328,46 @@ export function mergeGameState(localGame, remoteGame) {
     currentRound += 1;
   }
 
-  // Simultaneous playoff merge
-  const localPlayoffRound = localGame.playoffRound ?? 1;
-  const remotePlayoffRound = remoteGame.playoffRound ?? 1;
-  const playoffRound = Math.max(localPlayoffRound, remotePlayoffRound);
-
-  let playoffScores = {};
-  let playoffSubmitted = {};
-  if (localPlayoffRound === remotePlayoffRound) {
-    playoffScores = {
-      ...remoteGame.playoffScores,
-      ...localGame.playoffScores,
-    };
-    playoffSubmitted = {
-      ...remoteGame.playoffSubmitted,
-      ...localGame.playoffSubmitted,
-    };
-  } else if (remotePlayoffRound > localPlayoffRound) {
-    playoffScores = remoteGame.playoffScores || {};
-    playoffSubmitted = remoteGame.playoffSubmitted || {};
+  // Playoff state. A backout resets the playoff, so the backout side's copy wins.
+  let playoffRound;
+  let playoffScores;
+  let playoffSubmitted;
+  let playoffChoice;
+  let playoffPlayers;
+  if (backoutSide) {
+    playoffRound = backoutSide.playoffRound ?? 1;
+    playoffScores = backoutSide.playoffScores || {};
+    playoffSubmitted = backoutSide.playoffSubmitted || {};
+    playoffChoice = backoutSide;
+    playoffPlayers = backoutSide.playoffPlayers || [];
   } else {
-    playoffScores = localGame.playoffScores || {};
-    playoffSubmitted = localGame.playoffSubmitted || {};
+    const localPlayoffRound = localGame.playoffRound ?? 1;
+    const remotePlayoffRound = remoteGame.playoffRound ?? 1;
+    playoffRound = Math.max(localPlayoffRound, remotePlayoffRound);
+    if (localPlayoffRound === remotePlayoffRound) {
+      playoffScores = { ...remoteGame.playoffScores, ...localGame.playoffScores };
+      playoffSubmitted = { ...remoteGame.playoffSubmitted, ...localGame.playoffSubmitted };
+      playoffChoice = pickPlayoffChoice(localGame, remoteGame);
+    } else {
+      const newerPlayoff = remotePlayoffRound > localPlayoffRound ? remoteGame : localGame;
+      playoffScores = newerPlayoff.playoffScores || {};
+      playoffSubmitted = newerPlayoff.playoffSubmitted || {};
+      playoffChoice = newerPlayoff;
+    }
+    playoffPlayers = remoteGame.playoffPlayers?.length ? remoteGame.playoffPlayers : (localGame.playoffPlayers || []);
   }
-
-  let playoffStyle = null;
-  let playoffNumber = null;
-  if (remotePlayoffRound > localPlayoffRound) {
-    playoffStyle = remoteGame.playoffStyle || null;
-    playoffNumber = remoteGame.playoffNumber ?? null;
-  } else if (localPlayoffRound > remotePlayoffRound) {
-    playoffStyle = localGame.playoffStyle || null;
-    playoffNumber = localGame.playoffNumber ?? null;
-  } else {
-    playoffStyle = localGame.playoffStyle || remoteGame.playoffStyle || null;
-    playoffNumber = localGame.playoffStyle
-      ? (localGame.playoffNumber ?? remoteGame.playoffNumber ?? null)
-      : (remoteGame.playoffNumber ?? localGame.playoffNumber ?? null);
-  }
-  const playoffPlayers = remoteGame.playoffPlayers?.length ? remoteGame.playoffPlayers : (localGame.playoffPlayers || []);
   const tieBreaker = localGame.tieBreaker || remoteGame.tieBreaker || 'playoff';
 
-  const legsWonMap = {
-    ...remoteGame.legsWonMap,
-    ...localGame.legsWonMap,
-  };
-
-  const finalWinners = isRemoteBackoutNewer
-    ? (remoteGame.finalWinners || [])
-    : ((remoteGame.finalWinners?.length ? remoteGame.finalWinners : localGame.finalWinners) || []);
-  const finalStats = isRemoteBackoutNewer
-    ? (remoteGame.finalStats || null)
-    : (remoteGame.finalStats || localGame.finalStats || null);
+  // Results and leg counts come from the side that has the result, or from the backout
+  // side, which has already undone it.
+  const resultSide = backoutSide ??
+    (remoteGame.finalWinners?.length ? remoteGame : localGame.finalWinners?.length ? localGame : null);
+  const legsWonMap = resultSide
+    ? { ...resultSide.legsWonMap }
+    : { ...remoteGame.legsWonMap, ...localGame.legsWonMap };
+  const finalWinners = resultSide?.finalWinners || [];
+  const finalStats = resultSide?.finalStats || null;
+  const legsBeforeResult = resultSide ? (resultSide.legsBeforeResult ?? null) : null;
   const backout = isRemoteBackoutNewer ? remoteGame.backout : (localGame.backout || null);
 
   return resolveCompletedRound({
@@ -365,15 +381,16 @@ export function mergeGameState(localGame, remoteGame) {
     currentPlayerIndex: localGame.round >= remoteGame.round ? (localGame.currentPlayerIndex ?? 0) : (remoteGame.currentPlayerIndex ?? 0),
     view,
     playoffRound,
-    playoffStyle,
+    playoffStyle: playoffChoice.playoffStyle || null,
     playoffScores,
     playoffSubmitted,
-    playoffNumber,
+    playoffNumber: playoffChoice.playoffNumber ?? null,
     playoffPlayers,
     legsWonMap,
+    legsBeforeResult,
     finalWinners,
     finalStats,
+    resultSeq: Math.max(localGame.resultSeq ?? 0, remoteGame.resultSeq ?? 0),
     backout,
   });
 }
-

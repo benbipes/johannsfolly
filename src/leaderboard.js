@@ -53,6 +53,36 @@ function saveRaw(data) {
   } catch { /* ignore quota errors */ }
 }
 
+// Drops games whose result was backed out. Returns true if any were removed.
+function removeVoidedGames(data) {
+  let removed = false;
+  Object.values(data.players || {}).forEach(stats => {
+    if (!Array.isArray(stats?.games)) return;
+    const kept = stats.games.filter(g => !(g?.gameId && data.voidedIds?.[g.gameId]));
+    if (kept.length !== stats.games.length) {
+      stats.games = kept;
+      stats.wins = kept.filter(g => g.won).length;
+      removed = true;
+    }
+  });
+  return removed;
+}
+
+/**
+ * Voids a recorded result after it was backed out, on this device and on every other
+ * device it syncs with, so the corrected result can be recorded in its place.
+ */
+export function voidRecord(recordId) {
+  if (!recordId) return;
+  const data = loadRaw();
+  if (!data.voidedIds) data.voidedIds = {};
+  if (data.voidedIds[recordId]) return;
+  data.voidedIds[recordId] = true;
+  removeVoidedGames(data);
+  saveRaw(data);
+  broadcastLeaderboardData();
+}
+
 /**
  * Merges remote raw leaderboard data into local raw leaderboard data.
  * Returns true if new games were added.
@@ -64,9 +94,18 @@ export function mergeLeaderboardData(remoteData) {
 
   if (!localData.recordedIds) localData.recordedIds = {};
   if (!localData.players) localData.players = {};
+  if (!localData.voidedIds) localData.voidedIds = {};
 
   const remoteRecordedIds = remoteData.recordedIds || {};
   const remotePlayers = remoteData.players || {};
+
+  Object.keys(remoteData.voidedIds || {}).forEach(gId => {
+    if (!localData.voidedIds[gId]) {
+      localData.voidedIds[gId] = true;
+      changed = true;
+    }
+  });
+  if (removeVoidedGames(localData)) changed = true;
 
   Object.keys(remoteRecordedIds).forEach(gId => {
     if (!localData.recordedIds[gId]) {
@@ -86,6 +125,7 @@ export function mergeLeaderboardData(remoteData) {
     const remoteGames = remoteStats.games || [];
 
     remoteGames.forEach(g => {
+      if (g?.gameId && localData.voidedIds[g.gameId]) return;
       if (g && g.won && g.totalMarks === 20) {
         g.totalMarks = 21;
       }
@@ -171,8 +211,8 @@ export function recordGame(players, winnerIndices, totalRounds, marksPerPlayer, 
   if (!data.recordedIds) data.recordedIds = {};
 
   const gId = gameId || `g_${totalRounds}_${winnerIndices.join('-')}_${players.map(p => p.name).join('-')}`;
-  if (data.recordedIds[gId]) {
-    return; // Already recorded on this device!
+  if (data.recordedIds[gId] || data.voidedIds?.[gId]) {
+    return; // Already recorded on this device, or backed out.
   }
   data.recordedIds[gId] = true;
 
@@ -227,7 +267,7 @@ export function getLeaderboard() {
     .forEach(([name, stats]) => {
       const key = playerKey(name);
       const displayName = preferredName(name);
-      const games = stats.games ?? [];
+      const games = (stats.games ?? []).filter(g => !(g?.gameId && data.voidedIds?.[g.gameId]));
       const existing = playersByKey.get(key);
       if (!existing) {
         playersByKey.set(key, { name: displayName, games: [...games] });

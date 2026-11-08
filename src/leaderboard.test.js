@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { clearCacheKeepHistory, findKnownName, getLeaderboard, saveHistoryBackup } from './leaderboard.js';
+import {
+  clearCacheKeepHistory, findKnownName, getLeaderboard, mergeLeaderboardData, recordGame, saveHistoryBackup, voidRecord,
+} from './leaderboard.js';
 
 const HISTORY_KEY = 'jf:leaderboard';
 const history = {
@@ -174,5 +176,61 @@ describe('saveHistoryBackup', () => {
     await saveHistoryBackup();
 
     expect(createElement).not.toHaveBeenCalled();
+  });
+});
+
+describe('backed-out results', () => {
+  const players = [{ name: 'Alex', finished: true, finishedRound: 9 }, { name: 'Ben', roundCompleted: 9, targetIndex: 12 }];
+  const stored = () => JSON.parse(localStorage.getItem(HISTORY_KEY));
+  const entry = name => getLeaderboard().find(e => e.name === name);
+
+  it('removes a voided result from the leaderboard', () => {
+    recordGame(players, [0], 9, {}, {}, 'g9');
+    expect(entry('Alex').wins).toBe(2);
+
+    voidRecord('g9');
+
+    expect(entry('Alex').wins).toBe(1);
+    expect(entry('Ben').games).toBe(0);
+    expect(stored().voidedIds.g9).toBe(true);
+  });
+
+  it('records the corrected result after the first one was voided', () => {
+    recordGame(players, [0], 9, {}, {}, 'g9');
+    voidRecord('g9');
+
+    recordGame(players, [1], 10, {}, {}, 'g9#1');
+
+    expect(entry('Alex').wins).toBe(1);
+    expect(entry('Ben').wins).toBe(1);
+  });
+
+  it('never records a result that was already voided', () => {
+    voidRecord('g9');
+
+    recordGame(players, [0], 9, {}, {}, 'g9');
+
+    expect(entry('Alex').wins).toBe(1);
+  });
+
+  it('removes a result voided on another phone', () => {
+    recordGame(players, [0], 9, {}, {}, 'g9');
+
+    const changed = mergeLeaderboardData({ players: {}, recordedIds: { g9: true }, voidedIds: { g9: true } });
+
+    expect(changed).toBe(true);
+    expect(entry('Alex').wins).toBe(1);
+  });
+
+  it('does not take back a voided result from a phone that has not heard about it', () => {
+    voidRecord('g9');
+    const oldPhone = {
+      players: { Alex: { wins: 1, games: [{ gameId: 'g9', date: '2026-03-01', won: true, rounds: 9, totalMarks: 21 }] } },
+      recordedIds: { g9: true },
+    };
+
+    mergeLeaderboardData(oldPhone);
+
+    expect(entry('Alex').wins).toBe(1);
   });
 });

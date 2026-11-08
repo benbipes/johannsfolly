@@ -10,11 +10,11 @@ import ScoringScreen from './components/ScoringScreen.jsx';
 import PlayoffScreen from './components/PlayoffScreen.jsx';
 import LeaderboardView from './components/Leaderboard.jsx';
 
-import { createGame, mergeGameState, getPlayerMarks } from './gameLogic.js';
+import { createGame, mergeGameState, getPlayerMarks, resultRecordId, voidedRecordIds } from './gameLogic.js';
 import { useGameSync } from './useGameSync.js';
 import { getSavedName, forgetName, refreshLoggedUserPresence } from './auth.js';
 import { isUnlocked } from './groupCode.js';
-import { recordGame, clearCacheKeepHistory } from './leaderboard.js';
+import { recordGame, voidRecord, clearCacheKeepHistory } from './leaderboard.js';
 import { playNewRoundSound, reunlockAllAudio } from './audio.js';
 
 function generateRoomCode() {
@@ -181,6 +181,9 @@ export default function App() {
         }
       }
 
+      // A result that was backed out on another phone is voided here too.
+      if ((mergedGame?.resultSeq ?? 0) > 0) voidedRecordIds(mergedGame).forEach(voidRecord);
+
       const isNewGame = prevGame && mergedGame.gameId !== prevGame.gameId;
       if (isNewGame) {
         setPlayoffPlayers([]);
@@ -212,7 +215,7 @@ export default function App() {
             mergedGame.finalStats?.rounds ?? mergedGame.round ?? 1,
             mergedGame.finalStats?.marksMap ?? {},
             mergedGame.finalStats?.dartsMap ?? {},
-            mergedGame.gameId
+            resultRecordId(mergedGame)
           );
         }
       }
@@ -381,7 +384,7 @@ export default function App() {
             dartsMap[p.name] = p.darts ?? 0;
             perfectsMap[p.name] = p.perfectCount ?? 0;
           });
-          recordGame(updatedPlayers, [winnerIdx], prev.round, marksMap, dartsMap, prev.gameId);
+          recordGame(updatedPlayers, [winnerIdx], prev.round, marksMap, dartsMap, resultRecordId(prev));
           const fStats = { rounds: prev.round, marksMap, dartsMap, perfectsMap, legsWonMap: nextLegsWonMap };
           nextView = 'winner';
           setFinalWinners([winnerIdx]);
@@ -399,6 +402,7 @@ export default function App() {
             finalWinners: [winnerIdx],
             finalStats: fStats,
             legsWonMap: nextLegsWonMap,
+            legsBeforeResult: prev.legsWonMap ?? {},
             playoffScores: {},
             playoffSubmitted: {},
             playoffNumber: null,
@@ -444,6 +448,7 @@ export default function App() {
       if (!prev || !prev.players || !prev.players[playerIdx]) return prev;
       const targetPlayer = prev.players[playerIdx];
       const snapshot = targetPlayer.roundSnapshot;
+      const backoutTimestamp = Date.now();
 
       const restoredPlayer = snapshot
         ? {
@@ -460,6 +465,7 @@ export default function App() {
             bullsHit: snapshot.bullsHit,
             legsWon: snapshot.legsWon,
             roundSnapshot: null,
+            backoutAt: backoutTimestamp,
           }
         : {
             ...targetPlayer,
@@ -467,13 +473,21 @@ export default function App() {
             finished: false,
             finishedRound: null,
             roundSnapshot: null,
+            backoutAt: backoutTimestamp,
           };
 
-      const updatedPlayers = prev.players.map((p, idx) => (idx === playerIdx ? restoredPlayer : p));
+      // Backing out a finished game voids its recorded result and gives back the leg it awarded.
+      const hadResult = prev.finalWinners?.length > 0;
+      if (hadResult) voidRecord(resultRecordId(prev));
+      const restoredLegs = hadResult ? { ...(prev.legsBeforeResult ?? prev.legsWonMap) } : (prev.legsWonMap ?? {});
+      if (hadResult) setLegsWonMap(restoredLegs);
+
+      const updatedPlayers = prev.players.map((p, idx) => {
+        const player = idx === playerIdx ? restoredPlayer : p;
+        return hadResult ? { ...player, legsWon: restoredLegs[player.name] || 0 } : player;
+      });
       const targetRound = snapshot ? snapshot.round : Math.max(1, restoredPlayer.roundCompleted + 1);
 
-
-      const backoutTimestamp = Date.now();
       lastBackoutRef.current = backoutTimestamp;
       const backoutInfo = {
         playerIndex: playerIdx,
@@ -493,6 +507,9 @@ export default function App() {
         playoffSubmitted: {},
         playoffNumber: null,
         playoffRound: 1,
+        legsWonMap: restoredLegs,
+        legsBeforeResult: null,
+        resultSeq: (prev.resultSeq ?? 0) + (hadResult ? 1 : 0),
         backout: backoutInfo,
         updatedAt: backoutTimestamp,
       };
@@ -570,7 +587,7 @@ export default function App() {
             perfectsMap[p.name] = p.perfectCount ?? 0;
           });
           const regulationRounds = updated.players[winnerIdx]?.finishedRound ?? updated.round ?? 1;
-          recordGame(updatedPlayers, [winnerIdx], regulationRounds, marksMap, dartsMap, updated.gameId);
+          recordGame(updatedPlayers, [winnerIdx], regulationRounds, marksMap, dartsMap, resultRecordId(updated));
 
           const fStats = { rounds: regulationRounds, marksMap, dartsMap, perfectsMap, legsWonMap: nextLegsWonMap };
           setFinalWinners([winnerIdx]);
@@ -585,6 +602,7 @@ export default function App() {
             finalWinners: [winnerIdx],
             finalStats: fStats,
             legsWonMap: nextLegsWonMap,
+            legsBeforeResult: prev.legsWonMap ?? {},
             playoffScores: nextScores,
           };
           setTimeout(() => broadcastRef.current?.(winnerGame), 0);
@@ -645,7 +663,7 @@ export default function App() {
       });
       const winnerIdx = winners[0];
       const regulationRounds = (winnerIdx !== undefined ? prev.players[winnerIdx]?.finishedRound : null) ?? prev.round ?? 1;
-      recordGame(updatedPlayers, winners, regulationRounds, marksMap, dartsMap, prev.gameId);
+      recordGame(updatedPlayers, winners, regulationRounds, marksMap, dartsMap, resultRecordId(prev));
 
       const fStats = { rounds: regulationRounds, marksMap, dartsMap, perfectsMap, legsWonMap: nextLegsWonMap };
       setFinalWinners(winners);
@@ -661,6 +679,7 @@ export default function App() {
         finalWinners: winners,
         finalStats: fStats,
         legsWonMap: nextLegsWonMap,
+        legsBeforeResult: prev.legsWonMap ?? {},
         playoffScores: scores,
       };
       setTimeout(() => broadcastRef.current?.(updated), 0);

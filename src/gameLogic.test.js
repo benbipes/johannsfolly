@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createGame, mergeGameState } from './gameLogic.js';
+import { createGame, mergeGameState, resultRecordId, voidedRecordIds } from './gameLogic.js';
 
 function startRound(names, round = 5) {
   const game = createGame(names);
@@ -124,5 +124,125 @@ describe('mergeGameState round end', () => {
 
     expect(merged.view).toBe('scoring');
     expect(merged.finalWinners).toEqual([]);
+  });
+});
+
+describe('mergeGameState backouts', () => {
+  function backOut(game, playerIdx, timestamp, restored) {
+    return {
+      ...game,
+      players: game.players.map((p, i) => (i === playerIdx ? { ...restored, backoutAt: timestamp } : p)),
+      round: restored.roundCompleted + 1,
+      view: 'scoring',
+      finalWinners: [],
+      finalStats: null,
+      legsWonMap: game.legsBeforeResult ?? game.legsWonMap,
+      legsBeforeResult: null,
+      resultSeq: (game.resultSeq ?? 0) + (game.finalWinners?.length ? 1 : 0),
+      backout: { timestamp, playerName: game.players[playerIdx].name },
+    };
+  }
+
+  it('keeps an earlier backout of one player when another player is backed out later', () => {
+    const base = startRound(['A', 'B', 'C']);
+    const thrown = throwMiss(throwMiss(base, 0), 1);
+    const restoredA = base.players[0];
+    const restoredB = base.players[1];
+    const phone1 = backOut(thrown, 0, 1000, restoredA);
+    const phone2 = backOut(thrown, 1, 2000, restoredB);
+
+    for (const merged of [mergeGameState(phone1, phone2), mergeGameState(phone2, phone1)]) {
+      expect(merged.players[0].roundCompleted).toBe(4);
+      expect(merged.players[1].roundCompleted).toBe(4);
+      expect(merged.round).toBe(5);
+      expect(merged.backout.timestamp).toBe(2000);
+    }
+  });
+
+  it('does not let an old copy undo a backout', () => {
+    const base = startRound(['A', 'B']);
+    const thrown = throwMiss(base, 0);
+    const backedOut = backOut(thrown, 0, 1000, base.players[0]);
+
+    for (const merged of [mergeGameState(thrown, backedOut), mergeGameState(backedOut, thrown)]) {
+      expect(merged.players[0].roundCompleted).toBe(4);
+      expect(merged.players[0].backoutAt).toBe(1000);
+    }
+  });
+
+  it('gives back the leg and counts the new result once after a winner is backed out', () => {
+    const base = startRound(['A', 'B']);
+    const won = { ...wonGame(['A', 'B']), legsWonMap: { A: 3, B: 2 }, legsBeforeResult: { A: 2, B: 2 } };
+    const backedOut = backOut(won, 0, 1000, base.players[0]);
+
+    for (const merged of [mergeGameState(won, backedOut), mergeGameState(backedOut, won)]) {
+      expect(merged.view).toBe('scoring');
+      expect(merged.finalWinners).toEqual([]);
+      expect(merged.legsWonMap).toEqual({ A: 2, B: 2 });
+      expect(merged.resultSeq).toBe(1);
+    }
+  });
+
+  it('keeps the backed-out result when an old winner copy arrives late', () => {
+    const base = startRound(['A', 'B']);
+    const won = { ...wonGame(['A', 'B']), legsWonMap: { A: 1 }, legsBeforeResult: {} };
+    const backedOut = backOut(won, 0, 1000, base.players[0]);
+    const rescored = mergeGameState(backedOut, backedOut);
+
+    const merged = mergeGameState(rescored, won);
+
+    expect(merged.view).toBe('scoring');
+    expect(merged.legsWonMap).toEqual({});
+  });
+});
+
+describe('result record ids', () => {
+  it('uses the game id for the first result, so older records still match', () => {
+    expect(resultRecordId({ gameId: 'g1' })).toBe('g1');
+    expect(resultRecordId({ gameId: 'g1', resultSeq: 0 })).toBe('g1');
+  });
+
+  it('gives each later result its own id and lists the backed-out ones', () => {
+    expect(resultRecordId({ gameId: 'g1', resultSeq: 2 })).toBe('g1#2');
+    expect(voidedRecordIds({ gameId: 'g1', resultSeq: 2 })).toEqual(['g1', 'g1#1']);
+    expect(voidedRecordIds({ gameId: 'g1' })).toEqual([]);
+  });
+});
+
+describe('mergeGameState playoffs', () => {
+  const tied = closeBull(closeBull(startRound(['A', 'B']), 0), 1);
+  function playoff(style, number) {
+    return { ...tied, view: 'playoff', playoffPlayers: [0, 1], playoffRound: 1, playoffStyle: style, playoffNumber: number };
+  }
+
+  it('picks the same playoff target on every phone when two players choose at once', () => {
+    const phone1 = playoff('number', 7);
+    const phone2 = playoff('bulls', 'Bull');
+
+    const a = mergeGameState(phone1, phone2);
+    const b = mergeGameState(phone2, phone1);
+
+    expect([a.playoffStyle, a.playoffNumber]).toEqual([b.playoffStyle, b.playoffNumber]);
+  });
+
+  it('keeps the chosen target when the other phone has not chosen yet', () => {
+    const chosen = playoff('number', 7);
+    const waiting = playoff(null, null);
+
+    for (const merged of [mergeGameState(chosen, waiting), mergeGameState(waiting, chosen)]) {
+      expect(merged.playoffStyle).toBe('number');
+      expect(merged.playoffNumber).toBe(7);
+    }
+  });
+
+  it('combines playoff scores thrown at the same time', () => {
+    const base = playoff('number', 7);
+    const phone1 = { ...base, playoffScores: { 0: 2 }, playoffSubmitted: { 0: true } };
+    const phone2 = { ...base, playoffScores: { 1: 1 }, playoffSubmitted: { 1: true } };
+
+    const merged = mergeGameState(phone1, phone2);
+
+    expect(merged.playoffScores).toEqual({ 0: 2, 1: 1 });
+    expect(merged.playoffSubmitted).toEqual({ 0: true, 1: true });
   });
 });
