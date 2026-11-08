@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { TARGET_SEQUENCE, BULL_INDEX, processDarts, getPlayerMarks } from '../gameLogic.js';
-import { playSound, playRandomMissSwear, playRobotCheer, isSoundEnabled, toggleSound, unlockAudio } from '../audio.js';
+import { playSound, playRandomMissSwear, isSoundEnabled, toggleSound, unlockAudio } from '../audio.js';
 import logoImg from '../assets/logo.png';
 
 export default function ScoringScreen({
@@ -172,7 +172,6 @@ export default function ScoringScreen({
       } else {
         // Perfect throw! Immediately continue with next set of 3 bonus darts
         playSound('perfect');
-        playRobotCheer();
         specialSoundPlayed = true;
         setSimulatedTargetIndex(newTargetIndex);
         setTurnDarts(allTurnDarts);
