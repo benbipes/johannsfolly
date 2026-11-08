@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createGame, mergeGameState, resultRecordId, voidedRecordIds } from './gameLogic.js';
+import { canBackOutLastTurn, createGame, mergeGameState, resultRecordId, voidedRecordIds } from './gameLogic.js';
 
 function startRound(names, round = 5) {
   const game = createGame(names);
@@ -244,5 +244,44 @@ describe('mergeGameState playoffs', () => {
 
     expect(merged.playoffScores).toEqual({ 0: 2, 1: 1 });
     expect(merged.playoffSubmitted).toEqual({ 0: true, 1: true });
+  });
+});
+
+describe('canBackOutLastTurn', () => {
+  // Round 5 just ended with B's turn, so the game is now on round 6.
+  function afterRoundEnded() {
+    const game = throwMiss(throwMiss(startRound(['A', 'B']), 0), 1);
+    return {
+      ...game,
+      round: 6,
+      players: game.players.map(p => ({ ...p, roundSnapshot: { round: 5, roundCompleted: 4 } })),
+    };
+  }
+
+  it('lets the last player back out the turn that ended the round', () => {
+    const game = afterRoundEnded();
+
+    expect(canBackOutLastTurn(game, game.players[1])).toBe(true);
+  });
+
+  it('lets a solo player back out their last turn', () => {
+    const solo = throwMiss(startRound(['A']), 0);
+    const game = { ...solo, round: 6, players: [{ ...solo.players[0], roundSnapshot: { round: 5 } }] };
+
+    expect(canBackOutLastTurn(game, game.players[0])).toBe(true);
+  });
+
+  it('stops once someone has thrown in the new round', () => {
+    const game = afterRoundEnded();
+    game.players[0] = { ...game.players[0], roundCompleted: 6 };
+
+    expect(canBackOutLastTurn(game, game.players[1])).toBe(false);
+  });
+
+  it('does nothing for a player with no turn to back out', () => {
+    const game = afterRoundEnded();
+
+    expect(canBackOutLastTurn(game, { ...game.players[1], roundSnapshot: null })).toBe(false);
+    expect(canBackOutLastTurn(startRound(['A']), startRound(['A']).players[0])).toBe(false);
   });
 });

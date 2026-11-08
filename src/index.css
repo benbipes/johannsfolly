@@ -871,6 +871,13 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   transform: translateY(0);
 }
 
+.backout-last-turn-btn {
+  align-self: center;
+  margin: 0.25rem auto 0.5rem;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.9rem;
+}
+
 .btn-backout-large {
   background: rgba(245, 158, 11, 0.15) !important;
   border: 2px solid #f59e0b !important;

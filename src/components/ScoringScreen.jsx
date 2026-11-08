@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TARGET_SEQUENCE, BULL_INDEX, processDarts, getPlayerMarks } from '../gameLogic.js';
+import { TARGET_SEQUENCE, BULL_INDEX, processDarts, getPlayerMarks, canBackOutLastTurn } from '../gameLogic.js';
 import { playSound, playRandomMissSwear, isSoundEnabled, toggleSound, unlockAudio } from '../audio.js';
 import logoImg from '../assets/logo.png';
 
@@ -270,6 +270,19 @@ export default function ScoringScreen({
                 <div className="figma-turn-title">
                   Scoring Turn — {activePlayer.name}
                 </div>
+                {onBackOutScore && darts.length === 0 && canBackOutLastTurn(game, activePlayer) && (
+                  <button
+                    type="button"
+                    className="backout-score-btn backout-last-turn-btn"
+                    onClick={() => {
+                      if (window.confirm(`Back out ${activePlayer.name}'s Round ${game.round - 1} score so they can rescore?`)) {
+                        onBackOutScore(selectedIdx);
+                      }
+                    }}
+                  >
+                    ↩ Back out Round {game.round - 1} score
+                  </button>
+                )}
 
                 <div className="figma-target-and-slots">
                   <div className="figma-hero-target">

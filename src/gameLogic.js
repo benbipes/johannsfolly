@@ -205,6 +205,18 @@ function resolveCompletedRound(game) {
   };
 }
 
+/**
+ * True when a player's last turn ended the round and nobody has thrown in the new round
+ * yet. That turn can still be backed out, which is the only way for the last player to
+ * throw in a round, or a solo player, to fix a mistake.
+ */
+export function canBackOutLastTurn(game, player) {
+  if (!game || !player?.roundSnapshot || player.finished) return false;
+  const round = game.round ?? 1;
+  if (player.roundSnapshot.round !== round - 1 || (player.roundCompleted ?? 0) !== round - 1) return false;
+  return (game.players || []).every(p => !p.finished && (p.roundCompleted ?? 0) < round);
+}
+
 /** Identifies one recorded result of a game, so a result that gets backed out can be voided. */
 export function resultRecordId(game) {
   const seq = game?.resultSeq ?? 0;
