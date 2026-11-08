@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initNetworkSync } from './networkSync.js';
 
 const CONNACK = new Uint8Array([0x20, 0x02, 0x00, 0x00]).buffer;
@@ -48,5 +48,94 @@ describe('connecting to a broker', () => {
       .map(packet => new TextDecoder().decode(packet));
     expect(subscribes.length).toBeGreaterThan(0);
     expect(subscribes.some(text => text.includes('accounts'))).toBe(false);
+  });
+});
+
+describe('staying on the same broker', () => {
+  let sockets;
+
+  beforeEach(() => {
+    vi.resetModules();
+    vi.useFakeTimers();
+    sockets = [];
+    vi.stubGlobal('WebSocket', class {
+      static OPEN = 1;
+      readyState = 1;
+      constructor(url) { this.url = url; sockets.push(this); }
+      send() {}
+      close() {}
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  async function start() {
+    const { initNetworkSync: init } = await import('./networkSync.js');
+    init();
+    return sockets[0];
+  }
+
+  function connect(socket) {
+    socket.onopen();
+    socket.onmessage({ data: CONNACK });
+  }
+
+  const brokerOf = socket => new URL(socket.url).hostname;
+
+  it('reconnects to the first broker after a working connection drops', async () => {
+    const first = await start();
+    connect(first);
+
+    first.onclose();
+    vi.advanceTimersByTime(4000);
+
+    expect(sockets).toHaveLength(2);
+    expect(brokerOf(sockets[1])).toBe(brokerOf(first));
+  });
+
+  it('moves to the next broker when the first one cannot be reached', async () => {
+    const first = await start();
+
+    first.onerror();
+    vi.advanceTimersByTime(4000);
+
+    expect(brokerOf(sockets[1])).not.toBe(brokerOf(first));
+  });
+
+  it('reconnects only once when a socket reports both an error and a close', async () => {
+    const first = await start();
+    connect(first);
+
+    first.onerror();
+    first.onclose?.();
+    vi.advanceTimersByTime(4000);
+
+    expect(sockets).toHaveLength(2);
+  });
+
+  it('goes back to the first broker after a drop while on the backup', async () => {
+    const first = await start();
+    first.onerror();
+    vi.advanceTimersByTime(4000);
+    connect(sockets[1]);
+
+    sockets[1].onclose();
+    vi.advanceTimersByTime(4000);
+
+    expect(brokerOf(sockets[2])).toBe(brokerOf(first));
+  });
+
+  it('tries the first broker again a while after moving to the backup', async () => {
+    const first = await start();
+    first.onerror();
+    vi.advanceTimersByTime(4000);
+    connect(sockets[1]);
+
+    vi.advanceTimersByTime(120000 + 4000);
+
+    expect(sockets).toHaveLength(3);
+    expect(brokerOf(sockets[2])).toBe(brokerOf(first));
   });
 });

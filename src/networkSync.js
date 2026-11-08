@@ -12,6 +12,11 @@ const TOPIC_ROOM_PREFIX = 'jf/v1/room/';
 const TOPIC_LEADERBOARD = 'jf/v1/leaderboard';
 const OLD_ACCOUNT_TOPICS = ['jf/v1/accounts', 'jf/v2/accounts', 'jf/v3/accounts', 'jf/v4/accounts'];
 
+// Phones only see each other when they use the same broker, so every phone prefers the
+// first one and moves to the next only while it can't be reached.
+const RECONNECT_DELAY_MS = 4000;
+const RETRY_PRIMARY_MS = 120000;
+
 const PRESENCE_TTL_MS = 20000;
 const ROOM_TTL_MS = 20000;
 
@@ -20,6 +25,8 @@ let currentBrokerIdx = 0;
 let isConnected = false;
 let pingInterval = null;
 let reconnectTimer = null;
+let retryPrimaryTimer = null;
+let connectedThisSocket = false;
 
 const networkUsers = new Map();
 const networkRooms = new Map();
@@ -104,6 +111,13 @@ function handleIncomingMessage(bytes) {
 
   if (pktType === 2) {
     isConnected = true;
+    connectedThisSocket = true;
+    if (currentBrokerIdx !== 0 && !retryPrimaryTimer) {
+      retryPrimaryTimer = setTimeout(() => {
+        retryPrimaryTimer = null;
+        reconnect(0);
+      }, RETRY_PRIMARY_MS);
+    }
     sendSubscribe(TOPIC_PRESENCE);
     sendSubscribe(TOPIC_ROOMS);
     sendSubscribe(TOPIC_LEADERBOARD);
@@ -162,28 +176,46 @@ function handleIncomingMessage(bytes) {
   }
 }
 
-function tryFallback() {
-  if (reconnectTimer) return;
+function dropSocket() {
   if (socket) {
+    socket.onopen = socket.onmessage = socket.onerror = socket.onclose = null;
     try { socket.close(); } catch { /* ignore */ }
     socket = null;
   }
   isConnected = false;
   clearInterval(pingInterval);
+}
+
+// Closes the current connection and connects to the given broker after a short wait.
+function reconnect(brokerIdx) {
+  if (reconnectTimer) return;
+  dropSocket();
+  clearTimeout(retryPrimaryTimer);
+  retryPrimaryTimer = null;
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
-    currentBrokerIdx = (currentBrokerIdx + 1) % BROKERS.length;
+    currentBrokerIdx = brokerIdx;
     connectWebSocket(BROKERS[currentBrokerIdx]);
-  }, 4000);
+  }, RECONNECT_DELAY_MS);
+}
+
+function handleSocketLost() {
+  // A connection that worked and then dropped goes back to the first broker, so the
+  // phones stay together. Only a broker that can't be reached is skipped.
+  const next = connectedThisSocket ? 0 : (currentBrokerIdx + 1) % BROKERS.length;
+  reconnect(next);
 }
 
 function connectWebSocket(url) {
+  connectedThisSocket = false;
   try {
-    socket = new WebSocket(url);
-    socket.binaryType = 'arraybuffer';
+    const ws = new WebSocket(url);
+    socket = ws;
+    ws.binaryType = 'arraybuffer';
 
-    socket.onopen = () => {
+    ws.onopen = () => {
       sendConnect();
+      clearInterval(pingInterval);
       pingInterval = setInterval(() => {
         if (socket && socket.readyState === WebSocket.OPEN) {
           sendPacket(new Uint8Array([0xc0, 0x00]));
@@ -191,16 +223,16 @@ function connectWebSocket(url) {
       }, 20000);
     };
 
-    socket.onmessage = (evt) => {
+    ws.onmessage = (evt) => {
       if (evt.data instanceof ArrayBuffer) {
         handleIncomingMessage(new Uint8Array(evt.data));
       }
     };
 
-    socket.onerror = () => tryFallback();
-    socket.onclose = () => tryFallback();
+    ws.onerror = () => handleSocketLost();
+    ws.onclose = () => handleSocketLost();
   } catch {
-    tryFallback();
+    handleSocketLost();
   }
 }
 
