@@ -15,6 +15,7 @@ import { useGameSync } from './useGameSync.js';
 import { getSavedName, forgetName, refreshLoggedUserPresence } from './auth.js';
 import { isUnlocked } from './groupCode.js';
 import { loadActiveSession, saveActiveSession } from './session.js';
+import { viewAfterSync } from './views.js';
 import { recordGame, voidRecord, clearCacheKeepHistory } from './leaderboard.js';
 import { playNewRoundSound, reunlockAllAudio } from './audio.js';
 
@@ -168,7 +169,7 @@ export default function App() {
       }
 
       if (mergedGame?.view) {
-        setView(mergedGame.view);
+        setView(current => viewAfterSync(current, prevGame?.view, mergedGame.view));
         if (mergedGame.playoffPlayers) setPlayoffPlayers(mergedGame.playoffPlayers);
         if (mergedGame.playoffStyle !== undefined) setPlayoffStyle(mergedGame.playoffStyle);
         if (mergedGame.playoffNumber !== undefined) setPlayoffNumber(mergedGame.playoffNumber);
