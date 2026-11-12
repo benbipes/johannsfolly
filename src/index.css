@@ -562,12 +562,44 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   gap: 1.5rem;
 }
 
+/* Fixed height and no wrapping, so reaching Bull doesn't make the row taller
+   and push the score buttons down mid-turn. */
 .figma-hero-target {
+  box-sizing: border-box;
+  height: 5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
   font-size: 5rem;
   font-weight: 900;
   color: var(--accent);
   line-height: 1;
   letter-spacing: -1px;
+}
+.figma-hero-target.is-bull {
+  font-size: 2.4rem;
+  gap: 0.2rem;
+}
+.figma-hero-bull-icon {
+  font-size: 1.5rem;
+}
+
+/* Holds "Undo last dart" or "Back out" below the score buttons. It keeps its
+   height when empty so the layout never shifts as these come and go. */
+.scoring-action-slot {
+  height: 3rem;
+  margin-top: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.scoring-undo-btn {
+  width: 100%;
+  height: 100%;
+  padding: 0 0.6rem;
+  font-size: 1rem;
 }
 
 .figma-dart-slots-wrap {
@@ -872,8 +904,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 
 .backout-last-turn-btn {
-  align-self: center;
-  margin: 0.25rem auto 0.5rem;
   padding: 0.45rem 0.85rem;
   font-size: 0.9rem;
 }
@@ -1093,9 +1123,19 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   }
 
   .figma-hero-target {
+    height: 4rem;
     font-size: 2.2rem;
     padding: 0.6rem 0.85rem;
     border-radius: 12px;
+  }
+
+  .figma-hero-target.is-bull {
+    font-size: 1.6rem;
+    gap: 0.1rem;
+  }
+
+  .figma-hero-bull-icon {
+    font-size: 1rem;
   }
 
   .figma-dart-card {

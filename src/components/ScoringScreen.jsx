@@ -270,23 +270,12 @@ export default function ScoringScreen({
                 <div className="figma-turn-title">
                   Scoring Turn — {activePlayer.name}
                 </div>
-                {onBackOutScore && darts.length === 0 && canBackOutLastTurn(game, activePlayer) && (
-                  <button
-                    type="button"
-                    className="backout-score-btn backout-last-turn-btn"
-                    onClick={() => {
-                      if (window.confirm(`Back out ${activePlayer.name}'s Round ${game.round - 1} score so they can rescore?`)) {
-                        onBackOutScore(selectedIdx);
-                      }
-                    }}
-                  >
-                    ↩ Back out Round {game.round - 1} score
-                  </button>
-                )}
 
                 <div className="figma-target-and-slots">
-                  <div className="figma-hero-target">
-                    {currentTarget === 'Bull' ? '🎯 Bull' : currentTarget}
+                  <div className={`figma-hero-target${currentTarget === 'Bull' ? ' is-bull' : ''}`}>
+                    {currentTarget === 'Bull'
+                      ? <><span className="figma-hero-bull-icon">🎯</span><span>Bull</span></>
+                      : currentTarget}
                   </div>
 
                   <div className="figma-dart-slots-wrap">
@@ -323,15 +312,31 @@ export default function ScoringScreen({
                       </button>
                     ))}
                   </div>
-                  {darts.length > 0 && (
-                    <button
-                      className="btn-secondary"
-                      style={{ width: '100%', marginTop: '0.65rem', padding: '0.6rem', fontSize: '1rem' }}
-                      onClick={undoLast}
-                    >
-                      ↩ Undo last dart
-                    </button>
-                  )}
+                  {/* Fixed-height slot below the buttons, so showing or hiding these
+                      never moves the score buttons under a player's finger. */}
+                  <div className="scoring-action-slot">
+                    {darts.length > 0 ? (
+                      <button
+                        type="button"
+                        className="btn-secondary scoring-undo-btn"
+                        onClick={undoLast}
+                      >
+                        ↩ Undo last dart
+                      </button>
+                    ) : onBackOutScore && canBackOutLastTurn(game, activePlayer) ? (
+                      <button
+                        type="button"
+                        className="backout-score-btn backout-last-turn-btn"
+                        onClick={() => {
+                          if (window.confirm(`Back out ${activePlayer.name}'s Round ${game.round - 1} score so they can rescore?`)) {
+                            onBackOutScore(selectedIdx);
+                          }
+                        }}
+                      >
+                        ↩ Back out Round {game.round - 1} score
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               )}
 
