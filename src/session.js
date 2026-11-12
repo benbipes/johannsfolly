@@ -56,14 +56,3 @@ export function saveActiveSession({ roomCode, playerName, view, isHost }) {
     });
   } catch { /* ignore */ }
 }
-
-const INTRO_KEY = 'jf:intro_seen';
-
-/** True the first time the app opens in this tab, so the intro doesn't replay on a reload. */
-export function shouldShowIntro() {
-  try { return !sessionStorage.getItem(INTRO_KEY); } catch { return false; }
-}
-
-export function markIntroSeen() {
-  try { sessionStorage.setItem(INTRO_KEY, '1'); } catch { /* ignore */ }
-}

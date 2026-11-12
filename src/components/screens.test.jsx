@@ -3,7 +3,6 @@ import { renderToString } from 'react-dom/server';
 import CodeScreen from './CodeScreen.jsx';
 import NameScreen from './NameScreen.jsx';
 import Lobby from './Lobby.jsx';
-import DartIntro from './DartIntro.jsx';
 import ScoringScreen from './ScoringScreen.jsx';
 
 function fakeStorage(initial = {}) {
@@ -73,16 +72,6 @@ describe('Lobby', () => {
     expect(html).toContain('Change name');
     expect(html).not.toContain('Logout');
     expect(html).not.toContain('Delete Account');
-  });
-});
-
-describe('DartIntro', () => {
-  it('waits for a tap before throwing the dart', () => {
-    const html = renderToString(<DartIntro onDone={() => {}} />);
-
-    expect(html).toContain('Tap to throw');
-    expect(html).toContain('dart-intro-ready');
-    expect(html).toContain('BOING!');
   });
 });
 

@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import './index.css';
 
-import DartIntro from './components/DartIntro.jsx';
 import CodeScreen from './components/CodeScreen.jsx';
 import NameScreen from './components/NameScreen.jsx';
 import Lobby from './components/Lobby.jsx';
@@ -15,7 +14,7 @@ import { createGame, mergeGameState, getPlayerMarks, resultRecordId, voidedRecor
 import { useGameSync } from './useGameSync.js';
 import { getSavedName, forgetName, refreshLoggedUserPresence } from './auth.js';
 import { isUnlocked } from './groupCode.js';
-import { loadActiveSession, saveActiveSession, shouldShowIntro, markIntroSeen } from './session.js';
+import { loadActiveSession, saveActiveSession } from './session.js';
 import { viewAfterSync } from './views.js';
 import { recordGame, voidRecord, clearCacheKeepHistory } from './leaderboard.js';
 import { playNewRoundSound, reunlockAllAudio } from './audio.js';
@@ -32,7 +31,6 @@ function choosePlayoffNumber() {
 }
 
 export default function App() {
-  const [showIntro, setShowIntro] = useState(shouldShowIntro);
   const [unlocked, setUnlocked] = useState(isUnlocked);
   const [loggedInUser, setLoggedInUser] = useState(() => getSavedName());
   const [restored] = useState(loadActiveSession);
@@ -705,16 +703,7 @@ export default function App() {
     setView('lobby');
   }
 
-  const finishIntro = useCallback(() => {
-    markIntroSeen();
-    setShowIntro(false);
-  }, []);
-
   // ---- Render ----
-
-  if (showIntro) {
-    return <DartIntro onDone={finishIntro} />;
-  }
 
   if (!unlocked) {
     return <CodeScreen onUnlock={() => setUnlocked(true)} />;
