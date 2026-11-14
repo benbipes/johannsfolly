@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { canBackOutLastTurn, createGame, mergeGameState, resultRecordId, voidedRecordIds } from './gameLogic.js';
+import {
+  BULL_INDEX, MAX_TARGET_INDEX, canBackOutLastTurn, createGame, getPastBullNumber, getRoundLeaders, getTargetLabel,
+  mergeGameState, processDarts, resultRecordId, voidedRecordIds,
+} from './gameLogic.js';
 
 function startRound(names, round = 5) {
   const game = createGame(names);
@@ -283,5 +286,130 @@ describe('canBackOutLastTurn', () => {
 
     expect(canBackOutLastTurn(game, { ...game.players[1], roundSnapshot: null })).toBe(false);
     expect(canBackOutLastTurn(startRound(['A']), startRound(['A']).players[0])).toBe(false);
+  });
+});
+
+// Closes Bull and goes back up to `number`, as handleTurnComplete records it.
+function closeBullUpTo(game, playerIdx, number) {
+  const closed = closeBull(game, playerIdx);
+  return {
+    ...closed,
+    players: closed.players.map((p, i) => (i === playerIdx ? { ...p, targetIndex: BULL_INDEX + number } : p)),
+  };
+}
+
+describe('processDarts past Bull', () => {
+  it('goes back up to 1 on a single Bull and keeps scoring the darts left', () => {
+    const result = processDarts({ targetIndex: BULL_INDEX }, ['single', 'double', 'triple']);
+
+    expect(result.hitBull).toBe(true);
+    expect(getTargetLabel(result.newTargetIndex)).toBe(6); // Bull -> 1, double 1 -> 3, triple 3 -> 6
+    expect(result.isPerfect).toBe(true);
+  });
+
+  it('goes back up to 2 on a double Bull', () => {
+    const result = processDarts({ targetIndex: BULL_INDEX }, ['double', 'miss', 'miss']);
+
+    expect(getPastBullNumber({ targetIndex: result.newTargetIndex })).toBe(2);
+    expect(result.bullsHit).toBe(2);
+    expect(result.isPerfect).toBe(false);
+  });
+
+  it('counts a perfect set that closes Bull on its last dart', () => {
+    const onTwo = BULL_INDEX - 2;
+    const result = processDarts({ targetIndex: onTwo }, ['single', 'single', 'single']);
+
+    expect(result.hitBull).toBe(true);
+    expect(result.isPerfect).toBe(true);
+    expect(getTargetLabel(result.newTargetIndex)).toBe(1);
+  });
+
+  it('still makes a player hit Bull itself before going back up', () => {
+    const onTwo = BULL_INDEX - 2;
+    const result = processDarts({ targetIndex: onTwo }, ['triple', 'miss', 'miss']);
+
+    expect(result.newTargetIndex).toBe(BULL_INDEX);
+    expect(result.hitBull).toBe(false);
+  });
+
+  it('stops at 20 on the way back up', () => {
+    const result = processDarts({ targetIndex: MAX_TARGET_INDEX - 1 }, ['triple']);
+
+    expect(result.newTargetIndex).toBe(MAX_TARGET_INDEX);
+    expect(getTargetLabel(result.newTargetIndex)).toBe(20);
+  });
+
+  it('keeps throwing at Bull in older games that add up bulls', () => {
+    const result = processDarts({ targetIndex: BULL_INDEX }, ['single', 'double', 'single'], 'bulls');
+
+    expect(result.newTargetIndex).toBe(BULL_INDEX);
+    expect(result.bullsHit).toBe(4);
+    expect(result.isPerfect).toBe(false);
+  });
+});
+
+describe('getRoundLeaders', () => {
+  it('picks whoever went furthest back up after Bull', () => {
+    const players = [
+      { finished: true, targetIndex: BULL_INDEX + 2 },
+      { finished: false, targetIndex: 15 },
+      { finished: true, targetIndex: BULL_INDEX + 5 },
+    ];
+    expect(getRoundLeaders(players)).toEqual([2]);
+  });
+
+  it('returns every player tied for furthest', () => {
+    const players = [
+      { finished: true, targetIndex: BULL_INDEX + 3 },
+      { finished: true, targetIndex: BULL_INDEX + 3 },
+      { finished: true, targetIndex: BULL_INDEX + 1 },
+    ];
+    expect(getRoundLeaders(players)).toEqual([0, 1]);
+  });
+
+  it('returns nobody when nobody closed Bull', () => {
+    expect(getRoundLeaders([{ finished: false, targetIndex: 5 }])).toEqual([]);
+  });
+});
+
+describe('mergeGameState going back up after Bull', () => {
+  it('gives the win to whoever went further back up, whichever turn arrives first', () => {
+    const base = startRound(['A', 'B']);
+    const deviceA = closeBullUpTo(base, 0, 2);
+    const deviceB = closeBullUpTo(base, 1, 4);
+
+    for (const merged of [mergeGameState(deviceA, deviceB), mergeGameState(deviceB, deviceA)]) {
+      expect(merged.view).toBe('winner');
+      expect(merged.finalWinners).toEqual([1]);
+      expect(merged.legsWonMap.B).toBe(1);
+      expect(merged.legsWonMap.A).toBeUndefined();
+      expect(merged.finalStats.marksMap.B).toBe(21);
+    }
+  });
+
+  it('lets a player who closes Bull later in the round beat an earlier one', () => {
+    const base = startRound(['A', 'B', 'C']);
+    const afterA = closeBullUpTo(base, 0, 1);
+    const afterB = throwMiss(afterA, 1);
+    const deviceC = closeBullUpTo(base, 2, 3);
+
+    for (const merged of [mergeGameState(afterB, deviceC), mergeGameState(deviceC, afterB)]) {
+      expect(merged.view).toBe('winner');
+      expect(merged.finalWinners).toEqual([2]);
+    }
+  });
+
+  it('starts a playoff when players reach the same number', () => {
+    const base = startRound(['A', 'B', 'C']);
+    const deviceA = closeBullUpTo(base, 0, 3);
+    const deviceB = closeBullUpTo(base, 1, 3);
+    const deviceC = closeBullUpTo(base, 2, 1);
+
+    const merged = mergeGameState(mergeGameState(deviceA, deviceB), deviceC);
+    const reversed = mergeGameState(deviceC, mergeGameState(deviceB, deviceA));
+    for (const m of [merged, reversed]) {
+      expect(m.view).toBe('playoff');
+      expect(m.playoffPlayers).toEqual([0, 1]);
+    }
   });
 });

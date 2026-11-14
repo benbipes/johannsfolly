@@ -10,7 +10,7 @@ import ScoringScreen from './components/ScoringScreen.jsx';
 import PlayoffScreen from './components/PlayoffScreen.jsx';
 import LeaderboardView from './components/Leaderboard.jsx';
 
-import { createGame, mergeGameState, getPlayerMarks, resultRecordId, voidedRecordIds } from './gameLogic.js';
+import { BULL_INDEX, createGame, mergeGameState, getPlayerMarks, getPastBullNumber, getRoundLeaders, resultRecordId, voidedRecordIds } from './gameLogic.js';
 import { useGameSync } from './useGameSync.js';
 import { getSavedName, forgetName, refreshLoggedUserPresence } from './auth.js';
 import { isUnlocked } from './groupCode.js';
@@ -285,7 +285,7 @@ export default function App() {
       const players = prev.players.map((p, i) => {
         if (i !== scoringPlayerIdx) return p;
         const playerFinished = p.finished || isFinished;
-        const playerMarks = newTargetIndex + (playerFinished ? 1 : 0);
+        const playerMarks = playerFinished ? BULL_INDEX + 1 : newTargetIndex;
         return {
           ...p,
           targetIndex: newTargetIndex,
@@ -318,10 +318,8 @@ export default function App() {
       let nextView = 'scoring';
 
       if (roundJustEnded) {
-        const bullPlayers = players
-          .map((p, i) => ({ p, i }))
-          .filter(({ p }) => p.finished)
-          .map(({ i }) => i);
+        // Whoever went furthest back up after closing Bull wins, and a tie goes to a playoff.
+        const bullPlayers = getRoundLeaders(players);
 
         if (bullPlayers.length === 0) {
           // The round has already moved on, so cover the screen now. Only the sound waits,
@@ -771,6 +769,7 @@ export default function App() {
     const isPlayoff = Object.keys(playoffScores).length > 0;
     const winnerPlayer = finalWinners.length > 0 ? game.players[finalWinners[0]] : null;
     const rounds = winnerPlayer?.finishedRound ?? finalStats?.rounds ?? game.round ?? 1;
+    const winnerPastBull = getPastBullNumber(winnerPlayer);
     return (
       <>
         {backoutToastOverlay}
@@ -783,7 +782,9 @@ export default function App() {
               ? ((game?.playoffStyle === 'bulls' || playoffStyle === 'bulls')
                   ? `Bullseye tie-breaker winner with ${playoffScores[finalWinners[0]] ?? 0} bull${playoffScores[finalWinners[0]] !== 1 ? 's' : ''}!`
                   : `Playoff winner with ${playoffScores[finalWinners[0]] ?? 0} hit${playoffScores[finalWinners[0]] !== 1 ? 's' : ''}!`)
-              : 'Closed on the Bullseye!'}
+              : winnerPastBull > 0
+                ? `Closed on the Bullseye and went back up to ${winnerPastBull}!`
+                : 'Closed on the Bullseye!'}
           </p>
 
           <div className="winner-rounds-badge">
@@ -816,6 +817,12 @@ export default function App() {
                       <span>{pRounds} {pRounds === 1 ? 'round' : 'rounds'}</span>
                       <span className="final-stat-dot">•</span>
                       <span>{pMarks}/21 numbers</span>
+                      {getPastBullNumber(p) > 0 && (
+                        <>
+                          <span className="final-stat-dot">•</span>
+                          <span>back up to {getPastBullNumber(p)}</span>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.15rem' }}>

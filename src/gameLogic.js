@@ -1,6 +1,32 @@
 // Target sequence: 20 down to 1, then Bull (25)
 export const TARGET_SEQUENCE = [20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 'Bull'];
 export const BULL_INDEX = TARGET_SEQUENCE.length - 1; // 20
+// A player who closes Bull keeps throwing while they have darts, going back up from 1.
+// Index BULL_INDEX + n means they're on n, so a single Bull puts them on 1 and a
+// double Bull on 2. Whoever gets furthest back up wins the round.
+export const MAX_TARGET_INDEX = BULL_INDEX + 20;
+
+/** The number (or 'Bull') a player at this index is aiming at. */
+export function getTargetLabel(targetIndex) {
+  if (targetIndex > BULL_INDEX) return Math.min(targetIndex, MAX_TARGET_INDEX) - BULL_INDEX;
+  return TARGET_SEQUENCE[targetIndex];
+}
+
+/** How far a player got back up after closing Bull, or 0 if they haven't passed it. */
+export function getPastBullNumber(player) {
+  return Math.max(0, Math.min(player?.targetIndex ?? 0, MAX_TARGET_INDEX) - BULL_INDEX);
+}
+
+/**
+ * The players who win a round in which somebody closed Bull: whoever got furthest
+ * back up. More than one means they're tied and go to a playoff.
+ */
+export function getRoundLeaders(players) {
+  const finished = (players || []).flatMap((p, i) => (p.finished ? [i] : []));
+  if (finished.length === 0) return [];
+  const best = Math.max(...finished.map(i => getPastBullNumber(players[i])));
+  return finished.filter(i => getPastBullNumber(players[i]) === best);
+}
 
 export function createPlayer(name, legsWon = 0) {
   return {
@@ -60,18 +86,19 @@ export function processDarts(player, dartResults, tieBreaker = 'playoff') {
     }
     if (targetIndex === BULL_INDEX) {
       hitBull = true;
-      const count = dart === 'single' ? 1 : dart === 'double' ? 2 : 1;
+      const count = dart === 'double' ? 2 : 1;
       bullsHit += count;
-      if (tieBreaker !== 'bulls') {
-        break;
-      }
+      // Older games that add up bulls keep throwing at Bull instead of going back up.
+      if (tieBreaker !== 'bulls') targetIndex += count;
       continue;
     }
     const advance = dart === 'single' ? 1 : dart === 'double' ? 2 : 3;
-    targetIndex = Math.min(targetIndex + advance, BULL_INDEX);
+    // A player has to hit Bull itself before they can go back up.
+    const cap = targetIndex < BULL_INDEX ? BULL_INDEX : MAX_TARGET_INDEX;
+    targetIndex = Math.min(targetIndex + advance, cap);
   }
 
-  const isPerfect = allHit && !hitBull && dartResults.length === 3;
+  const isPerfect = allHit && dartResults.length === 3 && !(hitBull && tieBreaker === 'bulls');
 
   return {
     newTargetIndex: targetIndex,
@@ -168,18 +195,18 @@ function resolveCompletedRound(game) {
   const roundComplete = players.length > 0 && players.every(
     p => p.finished || (p.roundCompleted ?? 0) >= round
   );
-  const finishedPlayers = players.flatMap((p, i) => (p.finished ? [i] : []));
-  if (!roundComplete || finishedPlayers.length === 0) {
+  const leaders = getRoundLeaders(players);
+  if (!roundComplete || leaders.length === 0) {
     return game;
   }
 
   const resetPlayoff = { playoffScores: {}, playoffSubmitted: {}, playoffNumber: null, playoffRound: 1 };
 
-  if (finishedPlayers.length > 1) {
-    return { ...game, ...resetPlayoff, view: 'playoff', playoffPlayers: finishedPlayers, playoffStyle: null };
+  if (leaders.length > 1) {
+    return { ...game, ...resetPlayoff, view: 'playoff', playoffPlayers: leaders, playoffStyle: null };
   }
 
-  const winnerIdx = finishedPlayers[0];
+  const winnerIdx = leaders[0];
   const winnerName = players[winnerIdx].name;
   const legsWonMap = { ...game.legsWonMap, [winnerName]: (game.legsWonMap?.[winnerName] || 0) + 1 };
   const updatedPlayers = players.map(p => ({ ...p, legsWon: legsWonMap[p.name] || 0 }));

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { TARGET_SEQUENCE, BULL_INDEX, getPlayerMarks } from '../gameLogic.js';
+import { BULL_INDEX, getTargetLabel, getPastBullNumber, getPlayerMarks } from '../gameLogic.js';
 
 export default function Scoreboard({ game, roomCode, onClose, onBackOutScore }) {
   const [copiedCode, setCopiedCode] = useState(false);
@@ -44,8 +44,9 @@ export default function Scoreboard({ game, roomCode, onClose, onBackOutScore }) 
         {sorted.map((player, rank) => {
           const isCurrent = player.originalIndex === game.currentPlayerIndex;
           const atBull = player.targetIndex === BULL_INDEX;
-          const target = TARGET_SEQUENCE[player.targetIndex];
-          const progress = player.targetIndex / BULL_INDEX;
+          const target = getTargetLabel(player.targetIndex);
+          const pastBull = getPastBullNumber(player);
+          const progress = Math.min(player.targetIndex / BULL_INDEX, 1);
           const marks = getPlayerMarks(player);
           const pRounds = player.finished
             ? (player.finishedRound ?? Math.max(player.roundCompleted ?? 0, 1))
@@ -79,7 +80,7 @@ export default function Scoreboard({ game, roomCode, onClose, onBackOutScore }) 
               </div>
               <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: '3.5rem' }}>
                 <span className={`score-target${atBull ? ' at-bull' : ''}`}>
-                  {player.finished ? '🎯 Bull' : target}
+                  {player.finished ? (pastBull > 0 ? `🎯 Bull +${pastBull}` : '🎯 Bull') : target}
                 </span>
                 <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 600 }}>
                   {mpr} MPR • {pRounds} {pRounds === 1 ? 'rnd' : 'rnds'}

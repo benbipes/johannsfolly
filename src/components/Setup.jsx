@@ -70,7 +70,7 @@ export default function Setup({ onStart, solo = false, initialNames = null, defa
           🎯 Player's Choice at Playoff
         </div>
         <p style={{ fontSize: '0.8rem', color: 'var(--muted)', margin: '0.25rem 0 0' }}>
-          If players tie on Bull in the same round, the tied players choose between Random Number (1–20) and Add-Up Bulls (Bullseye).
+          Closing Bull doesn't end your turn: keep throwing back up from 1 while you have darts or perfects. If several players close Bull in the same round, whoever gets furthest back up wins. Players still tied choose between Random Number (1–20) and Add-Up Bulls (Bullseye).
         </p>
       </div>
 

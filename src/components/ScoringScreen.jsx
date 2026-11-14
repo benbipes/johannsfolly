@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TARGET_SEQUENCE, BULL_INDEX, processDarts, getPlayerMarks, canBackOutLastTurn } from '../gameLogic.js';
+import { BULL_INDEX, MAX_TARGET_INDEX, getTargetLabel, getPastBullNumber, processDarts, getPlayerMarks, canBackOutLastTurn } from '../gameLogic.js';
 import { playSound, playRandomMissSwear, isSoundEnabled, toggleSound, unlockAudio } from '../audio.js';
 import logoImg from '../assets/logo.png';
 
@@ -52,6 +52,7 @@ export default function ScoringScreen({
   const [darts, setDarts] = useState([]);
   const [turnDarts, setTurnDarts] = useState([]); // all darts in the full turn (across perfect sets)
   const [perfectSets, setPerfectSets] = useState(0);
+  const [turnBulls, setTurnBulls] = useState(0); // bulls hit in earlier sets of this turn
 
   // Simulated current target after previous perfect sets in this turn
   const [simulatedTargetIndex, setSimulatedTargetIndex] = useState(activePlayer.targetIndex);
@@ -60,6 +61,7 @@ export default function ScoringScreen({
   useEffect(() => {
     setDarts([]);
     setTurnDarts([]);
+    setTurnBulls(0);
     setPerfectSets(0);
     setSimulatedTargetIndex(activePlayer.targetIndex);
   }, [game.round, selectedIdx, activePlayer.targetIndex]);
@@ -71,7 +73,8 @@ export default function ScoringScreen({
     { targetIndex: simulatedTargetIndex },
     darts,
   ).newTargetIndex;
-  const currentTarget = TARGET_SEQUENCE[currentTargetIndex];
+  const currentTarget = getTargetLabel(currentTargetIndex);
+  const isGoingBackUp = currentTargetIndex > BULL_INDEX;
 
   const tieBreaker = game.tieBreaker || 'playoff';
   const dartOptions = [
@@ -96,36 +99,39 @@ export default function ScoringScreen({
       tieBreaker
     );
     const allTurnDarts = [...turnDarts, ...newDarts];
+    const allTurnBulls = turnBulls + bullsHit;
 
-    let specialSoundPlayed = false;
-
-    // In playoff mode: first hit on Bull immediately closes the board
-    if (hitBull && tieBreaker !== 'bulls') {
-      playSound('bullseye');
-      const isTurnPerfect = (perfectSets > 0 || isPerfect) && !newDarts.every(d => d === 'miss');
-      onTurnComplete(selectedIdx, newTargetIndex, allTurnDarts, true, isTurnPerfect, 0, bullsHit);
+    function endTurn(finished, wasPerfect, soundDelayMs = 0) {
+      onTurnComplete(selectedIdx, newTargetIndex, allTurnDarts, finished, wasPerfect, soundDelayMs, allTurnBulls);
       setDarts([]);
       setTurnDarts([]);
+      setTurnBulls(0);
       setPerfectSets(0);
       setSimulatedTargetIndex(newTargetIndex);
-      return;
     }
+
+    let specialSoundPlayed = false;
 
     if (type !== 'miss' && currentTargetIndex === BULL_INDEX) {
       playSound('bullseye');
       specialSoundPlayed = true;
     }
 
+    // Hitting Bull no longer ends the turn. The player throws any darts they have left
+    // going back up from 1, and keeps going while their sets are perfect. Only at the
+    // top, with nothing higher to reach, does the turn stop early.
+    if (newTargetIndex >= MAX_TARGET_INDEX) {
+      if (!specialSoundPlayed) playSound(type);
+      endTurn(true, perfectSets > 0 || isPerfect);
+      return;
+    }
+
     if (newDarts.length === 3) {
-      // In bulls mode: hitting bull finishes at the end of the 3-dart set
+      // Older games that add up bulls: hitting bull finishes at the end of the 3-dart set
       if (hitBull && tieBreaker === 'bulls') {
         playSound('bullseye');
         const isTurnPerfect = (perfectSets > 0 || isPerfect) && !newDarts.every(d => d === 'miss');
-        onTurnComplete(selectedIdx, newTargetIndex, allTurnDarts, true, isTurnPerfect, 0, bullsHit);
-        setDarts([]);
-        setTurnDarts([]);
-        setPerfectSets(0);
-        setSimulatedTargetIndex(newTargetIndex);
+        endTurn(true, isTurnPerfect);
         return;
       }
 
@@ -149,7 +155,7 @@ export default function ScoringScreen({
         playSound('silverlining');
         specialSoundPlayed = true;
         soundDelayMs = 3000;
-      } else if (isOneMark) {
+      } else if (isOneMark && !specialSoundPlayed) {
         playSound('onedartatatime');
         specialSoundPlayed = true;
         soundDelayMs = 3000;
@@ -164,17 +170,14 @@ export default function ScoringScreen({
         // Submit score for this round
         // Turn counts as having a perfect throw for the next round only if it contained a perfect set and was NOT a curse
         const turnWasPerfect = perfectSets > 0 && !isCurse;
-        onTurnComplete(selectedIdx, newTargetIndex, allTurnDarts, false, turnWasPerfect, soundDelayMs);
-        setDarts([]);
-        setTurnDarts([]);
-        setPerfectSets(0);
-        setSimulatedTargetIndex(newTargetIndex);
+        endTurn(newTargetIndex > BULL_INDEX, turnWasPerfect, soundDelayMs);
       } else {
         // Perfect throw! Immediately continue with next set of 3 bonus darts
         playSound('perfect');
         specialSoundPlayed = true;
         setSimulatedTargetIndex(newTargetIndex);
         setTurnDarts(allTurnDarts);
+        setTurnBulls(allTurnBulls);
         setPerfectSets(s => s + 1);
         setDarts([]);
       }
@@ -272,10 +275,12 @@ export default function ScoringScreen({
                 </div>
 
                 <div className="figma-target-and-slots">
-                  <div className={`figma-hero-target${currentTarget === 'Bull' ? ' is-bull' : ''}`}>
+                  <div className={`figma-hero-target${currentTarget === 'Bull' ? ' is-bull' : ''}${isGoingBackUp ? ' is-return' : ''}`}>
                     {currentTarget === 'Bull'
                       ? <><span className="figma-hero-bull-icon">🎯</span><span>Bull</span></>
-                      : currentTarget}
+                      : isGoingBackUp
+                        ? <><span className="figma-hero-bull-icon" title="Going back up after Bull">↑</span><span>{currentTarget}</span></>
+                        : currentTarget}
                   </div>
 
                   <div className="figma-dart-slots-wrap">
@@ -360,7 +365,8 @@ export default function ScoringScreen({
                 const isCurrent = p.originalIndex === selectedIdx;
                 const isMe = myPlayerName && p.name?.trim().toLowerCase() === myPlayerName.trim().toLowerCase();
                 const atBull = p.targetIndex === BULL_INDEX;
-                const target = TARGET_SEQUENCE[p.targetIndex];
+                const target = getTargetLabel(p.targetIndex);
+                const pastBull = getPastBullNumber(p);
                 const marks = getPlayerMarks(p);
                 const pRounds = p.finished
                   ? (p.finishedRound ?? Math.max(p.roundCompleted ?? 0, 1))
@@ -403,7 +409,7 @@ export default function ScoringScreen({
                       )}
                       <div className="figma-target-wrap">
                         <span className={`figma-target-val${atBull ? ' at-bull' : ''}`}>
-                          {p.finished ? '🎯 Bull' : target}
+                          {p.finished ? (pastBull > 0 ? `🎯 Bull +${pastBull}` : '🎯 Bull') : target}
                         </span>
                         <span className="figma-mpr-val">{mpr} MPR • {pRounds} {pRounds === 1 ? 'rnd' : 'rnds'}</span>
                       </div>
