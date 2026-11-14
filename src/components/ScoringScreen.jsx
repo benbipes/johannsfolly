@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BULL_INDEX, MAX_TARGET_INDEX, getTargetLabel, getPastBullNumber, processDarts, getPlayerMarks, canBackOutLastTurn } from '../gameLogic.js';
-import { playSound, playRandomMissSwear, isSoundEnabled, toggleSound, unlockAudio } from '../audio.js';
+import { playSound, playRandomMissSwear, playBridgeVoice, BRIDGE_VOICE_MS, isSoundEnabled, toggleSound, unlockAudio } from '../audio.js';
 import logoImg from '../assets/logo.png';
 
 export default function ScoringScreen({
@@ -86,11 +86,14 @@ export default function ScoringScreen({
     dartOptions.push({ key: 'triple', label: 'Triple', cls: 'btn-triple' });
   }
 
-  function handleDart(type) {
+  // Scores the darts just thrown. "Jump off a bridge" throws all three as misses at once,
+  // and its voice line takes the place of the usual three-miss sounds.
+  function handleDarts(types, { bridge = false } = {}) {
     if (setDone || isRoundScored) return;
     unlockAudio();
 
-    const newDarts = [...darts, type];
+    const type = types[types.length - 1];
+    const newDarts = [...darts, ...types];
     setDarts(newDarts);
 
     const { newTargetIndex, isPerfect, hitBull, bullsHit } = processDarts(
@@ -111,6 +114,11 @@ export default function ScoringScreen({
     }
 
     let specialSoundPlayed = false;
+
+    if (bridge) {
+      playBridgeVoice();
+      specialSoundPlayed = true;
+    }
 
     if (type !== 'miss' && currentTargetIndex === BULL_INDEX) {
       playSound('bullseye');
@@ -147,7 +155,9 @@ export default function ScoringScreen({
 
       let soundDelayMs = 0;
 
-      if (isCurse) {
+      if (bridge) {
+        soundDelayMs = BRIDGE_VOICE_MS;
+      } else if (isCurse) {
         playSound('curse');
         specialSoundPlayed = true;
         soundDelayMs = 3800; // 3.8s duration for curse.mp3
@@ -186,6 +196,15 @@ export default function ScoringScreen({
     if (!specialSoundPlayed) {
       playSound(type);
     }
+  }
+
+  function handleDart(type) {
+    handleDarts([type]);
+  }
+
+  function handleJumpOffBridge() {
+    if (darts.length > 0) return;
+    handleDarts(['miss', 'miss', 'miss'], { bridge: true });
   }
 
   function undoLast() {
@@ -316,6 +335,17 @@ export default function ScoringScreen({
                         {opt.label}
                       </button>
                     ))}
+                    {/* Always shown, and only greyed out once a dart is in, so it never
+                        moves the score buttons. */}
+                    <button
+                      type="button"
+                      className="figma-score-btn btn-bridge"
+                      onClick={handleJumpOffBridge}
+                      disabled={darts.length > 0}
+                      title="Three misses"
+                    >
+                      🌉 Jump off a bridge
+                    </button>
                   </div>
                   {/* Fixed-height slot below the buttons, so showing or hiding these
                       never moves the score buttons under a player's finger. */}

@@ -700,6 +700,20 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   border: 2px solid #c084fc;
   color: #c084fc;
 }
+/* Three misses in one tap: a shorter, full-width row under the score buttons. */
+.figma-score-btn.btn-bridge {
+  grid-column: 1 / -1;
+  height: 56px;
+  font-size: 1.35rem;
+  background: #1a1a22;
+  border: 2px dashed #94a3b8;
+  color: #cbd5e1;
+}
+.figma-score-btn.btn-bridge:disabled {
+  opacity: 0.35;
+  cursor: default;
+  transform: none;
+}
 
 .figma-standings-card {
   background: #162032;
@@ -1156,6 +1170,11 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   .figma-score-btn {
     padding: 0.65rem 0.5rem;
     font-size: 1.05rem;
+  }
+
+  .figma-score-btn.btn-bridge {
+    height: auto;
+    font-size: 0.95rem;
   }
 
   .figma-standings-card {

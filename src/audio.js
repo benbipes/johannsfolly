@@ -169,6 +169,45 @@ export function playSound(name) {
   }
 }
 
+// Deep, slow voices that ship with iPhones, Macs, Android and Windows, best first.
+const BRIDGE_VOICES = [
+  'Aaron', 'Arthur', 'Evan', 'Nathan', 'Tom', 'Daniel', 'Gordon', 'Reed', 'Rishi', 'Fred',
+  'Google UK English Male', 'Microsoft Guy', 'Microsoft Christopher', 'Microsoft David', 'Microsoft Mark',
+];
+
+function pickBridgeVoice() {
+  const voices = window.speechSynthesis.getVoices().filter(v => v.lang?.toLowerCase().startsWith('en'));
+  for (const name of BRIDGE_VOICES) {
+    const voice = voices.find(v => v.name.startsWith(name));
+    if (voice) return voice;
+  }
+  return voices.find(v => /male/i.test(v.name)) ?? null;
+}
+
+// Some browsers only list their voices after being asked once.
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  try { window.speechSynthesis.getVoices(); } catch { /* ignore */ }
+}
+
+/** How long to hold the new-round sound so it doesn't talk over the bridge line. */
+export const BRIDGE_VOICE_MS = 3500;
+
+/** "If you jump, I will catch you," in the phone's deepest male voice, low and slow. */
+export function playBridgeVoice() {
+  if (!soundEnabled) return;
+  try {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance('If you jump... I will catch you.');
+    const voice = pickBridgeVoice();
+    if (voice) utter.voice = voice;
+    utter.lang = voice?.lang ?? 'en-US';
+    utter.pitch = 0.6;
+    utter.rate = 0.75;
+    window.speechSynthesis.speak(utter);
+  } catch { /* ignore */ }
+}
+
 export function playRandomMissSwear() {
   if (!soundEnabled) return;
   const keys = ['mf1', 'mf2', 'mf3', 'mf4', 'mf5', 'mf6', 'mf7'];

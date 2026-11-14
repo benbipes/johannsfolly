@@ -103,6 +103,14 @@ describe('ScoringScreen', () => {
     expect(html.indexOf('scoring-action-slot')).toBeLessThan(html.indexOf('Back out Round 1 score'));
   });
 
+  it('offers Jump off a bridge under the score buttons', () => {
+    const html = scoringHtml([fresh('Slipster'), fresh('Johann')]);
+
+    expect(html).toContain('Jump off a bridge');
+    expect(html.indexOf('btn-triple')).toBeLessThan(html.indexOf('Jump off a bridge'));
+    expect(html.indexOf('Jump off a bridge')).toBeLessThan(html.indexOf('scoring-action-slot'));
+  });
+
   it('keeps the action slot when another player has scored and back-out is gone', () => {
     const html = scoringHtml([fresh('Slipster'), fresh('Johann', { roundCompleted: 2 })]);
 
