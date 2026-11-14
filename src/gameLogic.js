@@ -12,9 +12,12 @@ export function getTargetLabel(targetIndex) {
   return TARGET_SEQUENCE[targetIndex];
 }
 
-/** How far a player got back up after closing Bull, or 0 if they haven't passed it. */
+/** How far a player got back up after closing Bull, or 0 if they haven't closed it. */
 export function getPastBullNumber(player) {
-  return Math.max(0, Math.min(player?.targetIndex ?? 0, MAX_TARGET_INDEX) - BULL_INDEX);
+  const past = Math.max(0, Math.min(player?.targetIndex ?? 0, MAX_TARGET_INDEX) - BULL_INDEX);
+  // Older versions of the app leave a player who closed Bull on Bull itself. They hit at
+  // least a single Bull, so they're on 1.
+  return player?.finished ? Math.max(past, 1) : past;
 }
 
 /**
@@ -182,12 +185,26 @@ export function mergePlayerState(localP, remoteP) {
 }
 
 /**
+ * True for a playoff that nobody has thrown in yet between players who aren't actually
+ * tied. Older versions of the app call a playoff whenever two players close Bull, without
+ * checking who got further back up, so the newer phones overrule it.
+ */
+function isWrongPlayoff(game, leaders) {
+  const started = Object.keys(game.playoffScores || {}).length > 0 ||
+    Object.keys(game.playoffSubmitted || {}).length > 0 ||
+    (game.playoffRound ?? 1) > 1;
+  if (started || leaders.length === 0) return false;
+  const tied = [...(game.playoffPlayers || [])].sort((a, b) => a - b);
+  return tied.length !== leaders.length || tied.some((idx, i) => idx !== leaders[i]);
+}
+
+/**
  * Ends the game when a merge completes a round in which a player closed Bull.
  * handleTurnComplete only sees the round end if its device already has every other
  * turn, so turns submitted at the same moment have to be resolved here instead.
  */
 function resolveCompletedRound(game) {
-  if (game.view === 'winner' || game.view === 'playoff' || game.finalWinners?.length > 0) {
+  if (game.view === 'winner' || game.finalWinners?.length > 0) {
     return game;
   }
 
@@ -196,6 +213,9 @@ function resolveCompletedRound(game) {
     p => p.finished || (p.roundCompleted ?? 0) >= round
   );
   const leaders = getRoundLeaders(players);
+  if (game.view === 'playoff' && !isWrongPlayoff(game, leaders)) {
+    return game;
+  }
   if (!roundComplete || leaders.length === 0) {
     return game;
   }

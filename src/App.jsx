@@ -112,7 +112,9 @@ export default function App() {
 
     setGame(prevGame => {
       let mergedGame = mergeGameState(prevGame, remoteGame);
-      let needsBroadcast = false;
+      // When this phone works out a winner the other phone didn't have, such as overruling
+      // an older version's playoff, send it back so every phone shows the same result.
+      let needsBroadcast = mergedGame?.view === 'winner' && remoteGame.view !== 'winner';
 
       if (mergedGame?.backout && mergedGame.backout.timestamp > (lastBackoutRef.current || 0)) {
         lastBackoutRef.current = mergedGame.backout.timestamp;

@@ -413,3 +413,40 @@ describe('mergeGameState going back up after Bull', () => {
     }
   });
 });
+
+describe('mergeGameState with a phone on an older version', () => {
+  // An older version stops a player on Bull and calls a playoff whenever two players close it.
+  function oldPlayoff(game) {
+    return { ...game, view: 'playoff', playoffPlayers: [0, 1], playoffStyle: null, playoffScores: {}, playoffSubmitted: {} };
+  }
+
+  it('overrules the old playoff when one player went further back up', () => {
+    const base = startRound(['A', 'B']);
+    const newPhone = closeBullUpTo(base, 0, 2); // Bull, then a 1
+    const oldPhone = oldPlayoff(closeBull(closeBullUpTo(base, 0, 2), 1)); // B stopped on Bull
+
+    for (const merged of [mergeGameState(newPhone, oldPhone), mergeGameState(oldPhone, newPhone)]) {
+      expect(merged.view).toBe('winner');
+      expect(merged.finalWinners).toEqual([0]);
+      expect(merged.legsWonMap.A).toBe(1);
+    }
+  });
+
+  it('keeps the playoff when the players really are tied', () => {
+    const base = startRound(['A', 'B']);
+    const newPhone = closeBullUpTo(base, 0, 1); // a single Bull
+    const oldPhone = oldPlayoff(closeBull(closeBullUpTo(base, 0, 1), 1)); // B stopped on Bull, so on 1
+
+    const merged = mergeGameState(newPhone, oldPhone);
+    expect(merged.view).toBe('playoff');
+    expect(merged.playoffPlayers).toEqual([0, 1]);
+  });
+
+  it('leaves a playoff alone once someone has thrown in it', () => {
+    const base = startRound(['A', 'B']);
+    const newPhone = closeBullUpTo(base, 0, 2);
+    const oldPhone = { ...oldPlayoff(closeBull(closeBullUpTo(base, 0, 2), 1)), playoffScores: { 1: 2 }, playoffSubmitted: { 1: true } };
+
+    expect(mergeGameState(newPhone, oldPhone).view).toBe('playoff');
+  });
+});
