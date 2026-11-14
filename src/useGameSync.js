@@ -5,6 +5,7 @@ import {
   publishNetworkRoomEvent,
   subscribeNetworkRoom,
 } from './networkSync.js';
+import { DEVICE_ID, versionStamp } from './version.js';
 
 const LOBBY_CHANNEL = 'jf:lobby';
 const ROOM_PREFIX = 'room:';
@@ -64,7 +65,7 @@ export function getOpenRooms() {
 
 export function setRoomPlayerPresence(roomCode, playerName) {
   localStorage.setItem(`${PLAYER_PREFIX}${roomCode}:${playerName}`, JSON.stringify({ playerName, updatedAt: Date.now() }));
-  publishNetworkRoomEvent(roomCode, { type: 'room_joined', playerName });
+  publishNetworkRoomEvent(roomCode, { type: 'room_joined', ...versionStamp(playerName) });
 }
 
 export function removeRoomPlayerPresence(roomCode, playerName) {
@@ -120,7 +121,7 @@ export function clearRoomPlayers(roomCode) {
  */
 export function useGameSync(roomCode, onGameUpdate) {
   const channelRef = useRef(null);
-  const mySenderIdRef = useRef(Math.random().toString(36).slice(2));
+  const mySenderIdRef = useRef(DEVICE_ID);
   const onUpdateRef = useRef(onGameUpdate);
   onUpdateRef.current = onGameUpdate;
 
@@ -152,7 +153,7 @@ export function useGameSync(roomCode, onGameUpdate) {
         try {
           const game = JSON.parse(stored);
           onUpdateRef.current(game);
-          const payload = { type: 'game_state', game, senderId: mySenderIdRef.current };
+          const payload = { type: 'game_state', game, ...versionStamp() };
           publishNetworkRoomEvent(roomCode, payload);
         } catch { /* ignore */ }
       }
@@ -171,7 +172,7 @@ export function useGameSync(roomCode, onGameUpdate) {
   const broadcast = useCallback((game) => {
     if (!roomCode || !game) return;
     localStorage.setItem(`game:${roomCode}`, JSON.stringify(game));
-    const payload = { type: 'game_state', game, senderId: mySenderIdRef.current };
+    const payload = { type: 'game_state', game, ...versionStamp() };
     channelRef.current?.postMessage(payload);
     publishNetworkRoomEvent(roomCode, payload);
   }, [roomCode]);

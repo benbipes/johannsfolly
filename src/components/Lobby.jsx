@@ -3,6 +3,7 @@ import { getOpenRooms } from '../useGameSync.js';
 import { getLoggedUsers } from '../auth.js';
 import { clearCacheKeepHistory } from '../leaderboard.js';
 import logoImg from '../assets/logo.png';
+import VersionTag from './VersionTag.jsx';
 
 export default function Lobby({
   onCreateRoom,
@@ -195,6 +196,8 @@ export default function Lobby({
           🧹 Clear Cache & Start Fresh
         </button>
       </div>
+
+      <VersionTag />
     </div>
   );
 }

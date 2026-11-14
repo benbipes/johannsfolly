@@ -73,6 +73,12 @@ describe('Lobby', () => {
     expect(html).not.toContain('Logout');
     expect(html).not.toContain('Delete Account');
   });
+
+  it('shows which release this phone is on', () => {
+    const html = renderToString(<Lobby loggedInUser="Slipster" onChangeName={() => {}} />).replaceAll('<!-- -->', '');
+
+    expect(html).toMatch(/Version \d+ · Released [A-Z][a-z]{2} \d{1,2}, \d{4}/);
+  });
 });
 
 describe('ScoringScreen', () => {

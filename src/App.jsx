@@ -12,6 +12,7 @@ import LeaderboardView from './components/Leaderboard.jsx';
 
 import { BULL_INDEX, createGame, mergeGameState, getPlayerMarks, getPastBullNumber, getRoundLeaders, resultRecordId, voidedRecordIds } from './gameLogic.js';
 import { useGameSync } from './useGameSync.js';
+import { setVersionRoom } from './version.js';
 import { getSavedName, forgetName, refreshLoggedUserPresence } from './auth.js';
 import { isUnlocked } from './groupCode.js';
 import { loadActiveSession, saveActiveSession } from './session.js';
@@ -84,6 +85,11 @@ export default function App() {
       } catch { /* ignore */ }
     }
   }, []);
+
+  // Lets the version banner check the other phones in this room are on the same release.
+  useEffect(() => {
+    setVersionRoom(roomCode, myPlayerName || loggedInUser);
+  }, [roomCode, myPlayerName, loggedInUser]);
 
   // Session persistence for page refresh recovery
   useEffect(() => {

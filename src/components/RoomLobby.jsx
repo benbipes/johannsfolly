@@ -12,6 +12,8 @@ import {
   subscribeNetworkRoom,
 } from '../networkSync.js';
 import logoImg from '../assets/logo.png';
+import { versionStamp } from '../version.js';
+import VersionTag from './VersionTag.jsx';
 
 const MAX_PLAYERS = 10;
 
@@ -57,7 +59,7 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, defaultTieBr
         channel.postMessage({ type: 'room_joined', playerName: myPlayerName });
         channel.close();
       } catch { /* ignore */ }
-      publishNetworkRoomEvent(roomCode, { type: 'room_joined', playerName: myPlayerName });
+      publishNetworkRoomEvent(roomCode, { type: 'room_joined', ...versionStamp(myPlayerName) });
     };
 
     const handleUnload = () => {
@@ -132,7 +134,7 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, defaultTieBr
         try {
           channel.postMessage({ type: 'player_list', players: next, tieBreaker: tieBreakerRef.current });
         } catch { /* ignore */ }
-        publishNetworkRoomEvent(roomCode, { type: 'player_list', players: next, tieBreaker: tieBreakerRef.current });
+        publishNetworkRoomEvent(roomCode, { type: 'player_list', players: next, tieBreaker: tieBreakerRef.current, ...versionStamp(next[0]) });
         return next;
       });
     }
@@ -255,7 +257,7 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, defaultTieBr
         const channel = new BroadcastChannel(`jf:room:${roomCode}`);
         channel.postMessage({ type: 'player_list', players: next, tieBreaker: tieBreakerRef.current });
         channel.close();
-        publishNetworkRoomEvent(roomCode, { type: 'player_list', players: next, tieBreaker: tieBreakerRef.current });
+        publishNetworkRoomEvent(roomCode, { type: 'player_list', players: next, tieBreaker: tieBreakerRef.current, ...versionStamp(next[0]) });
       } catch { /* ignore */ }
       return next;
     });
@@ -374,6 +376,8 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, defaultTieBr
         <button className="btn-secondary" style={{ width: '100%' }} onClick={handleLeave}>
           ← Leave Room
         </button>
+
+        <VersionTag />
       </div>
     );
   }
@@ -451,6 +455,8 @@ export default function RoomLobby({ roomCode, isHost, myPlayerName, defaultTieBr
           ← Back
         </button>
       </div>
+
+      <VersionTag />
     </div>
   );
 }
