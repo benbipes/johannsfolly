@@ -169,42 +169,89 @@ export function playSound(name) {
   }
 }
 
-// Deep, slow voices that ship with iPhones, Macs, Android and Windows, best first.
-const BRIDGE_VOICES = [
-  'Aaron', 'Arthur', 'Evan', 'Nathan', 'Tom', 'Daniel', 'Gordon', 'Reed', 'Rishi', 'Fred',
-  'Google UK English Male', 'Microsoft Guy', 'Microsoft Christopher', 'Microsoft David', 'Microsoft Mark',
-];
+/** How long the bridge sound runs, so the new-round sound waits for it. */
+export const BRIDGE_SOUND_MS = 2800;
 
-function pickBridgeVoice() {
-  const voices = window.speechSynthesis.getVoices().filter(v => v.lang?.toLowerCase().startsWith('en'));
-  for (const name of BRIDGE_VOICES) {
-    const voice = voices.find(v => v.name.startsWith(name));
-    if (voice) return voice;
-  }
-  return voices.find(v => /male/i.test(v.name)) ?? null;
-}
-
-// Some browsers only list their voices after being asked once.
-if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-  try { window.speechSynthesis.getVoices(); } catch { /* ignore */ }
-}
-
-/** How long to hold the new-round sound so it doesn't talk over the bridge line. */
-export const BRIDGE_VOICE_MS = 3500;
-
-/** "If you jump, I will catch you," in the phone's deepest male voice, low and slow. */
-export function playBridgeVoice() {
+/**
+ * Something big falling off a bridge: a cartoon whistle dropping in pitch, then a deep
+ * whoomp and a heavy splash as it hits the water, and the water crashing back down.
+ */
+export function playBridgeSplash() {
   if (!soundEnabled) return;
+  unlockAudio();
   try {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance('If you jump... I will catch you.');
-    const voice = pickBridgeVoice();
-    if (voice) utter.voice = voice;
-    utter.lang = voice?.lang ?? 'en-US';
-    utter.pitch = 0.6;
-    utter.rate = 0.75;
-    window.speechSynthesis.speak(utter);
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const t0 = ctx.currentTime;
+    const impact = t0 + 0.8;
+
+    // Every layer goes through a compressor, so the splash is loud without distorting.
+    const out = ctx.createDynamicsCompressor();
+    out.threshold.value = -12;
+    out.ratio.value = 4;
+    out.connect(ctx.destination);
+
+    // The fall
+    const whistle = ctx.createOscillator();
+    const whistleGain = ctx.createGain();
+    whistle.type = 'sine';
+    whistle.frequency.setValueAtTime(1400, t0);
+    whistle.frequency.exponentialRampToValueAtTime(300, impact);
+    whistleGain.gain.setValueAtTime(0.0001, t0);
+    whistleGain.gain.exponentialRampToValueAtTime(0.12, t0 + 0.05);
+    whistleGain.gain.setValueAtTime(0.12, impact - 0.15);
+    whistleGain.gain.exponentialRampToValueAtTime(0.0001, impact);
+    whistle.connect(whistleGain);
+    whistleGain.connect(out);
+    whistle.start(t0);
+    whistle.stop(impact);
+
+    // A deep whoomp as it hits the water
+    const whoomp = ctx.createOscillator();
+    const whoompGain = ctx.createGain();
+    whoomp.type = 'sine';
+    whoomp.frequency.setValueAtTime(140, impact);
+    whoomp.frequency.exponentialRampToValueAtTime(32, impact + 0.5);
+    whoompGain.gain.setValueAtTime(0.0001, impact);
+    whoompGain.gain.exponentialRampToValueAtTime(0.9, impact + 0.015);
+    whoompGain.gain.exponentialRampToValueAtTime(0.0001, impact + 0.6);
+    whoomp.connect(whoompGain);
+    whoompGain.connect(out);
+    whoomp.start(impact);
+    whoomp.stop(impact + 0.65);
+
+    const length = Math.floor(ctx.sampleRate * 2);
+    const noise = ctx.createBuffer(1, length, ctx.sampleRate);
+    const samples = noise.getChannelData(0);
+    for (let i = 0; i < length; i++) samples[i] = Math.random() * 2 - 1;
+
+    // Filtered noise that starts bright and gets deeper as the water settles.
+    function wash(at, gain, fromHz, toHz, seconds) {
+      const source = ctx.createBufferSource();
+      source.buffer = noise;
+      const lowpass = ctx.createBiquadFilter();
+      lowpass.type = 'lowpass';
+      lowpass.Q.value = 0.8;
+      lowpass.frequency.setValueAtTime(fromHz, at);
+      lowpass.frequency.exponentialRampToValueAtTime(toHz, at + seconds);
+      const highpass = ctx.createBiquadFilter();
+      highpass.type = 'highpass';
+      highpass.frequency.value = 50;
+      const level = ctx.createGain();
+      level.gain.setValueAtTime(0.0001, at);
+      level.gain.exponentialRampToValueAtTime(gain, at + 0.03);
+      level.gain.exponentialRampToValueAtTime(0.0001, at + seconds);
+      source.connect(highpass);
+      highpass.connect(lowpass);
+      lowpass.connect(level);
+      level.connect(out);
+      source.start(at);
+      source.stop(at + seconds + 0.05);
+    }
+
+    // The splash, then the water crashing back down
+    wash(impact, 1.0, 3500, 220, 1.7);
+    wash(impact + 0.3, 0.45, 1600, 180, 1.4);
   } catch { /* ignore */ }
 }
 

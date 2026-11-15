@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BULL_INDEX, MAX_TARGET_INDEX, getTargetLabel, getPastBullNumber, processDarts, getPlayerMarks, canBackOutLastTurn } from '../gameLogic.js';
-import { playSound, playRandomMissSwear, playBridgeVoice, BRIDGE_VOICE_MS, isSoundEnabled, toggleSound, unlockAudio } from '../audio.js';
+import { playSound, playRandomMissSwear, playBridgeSplash, BRIDGE_SOUND_MS, isSoundEnabled, toggleSound, unlockAudio } from '../audio.js';
 import logoImg from '../assets/logo.png';
 
 export default function ScoringScreen({
@@ -87,7 +87,7 @@ export default function ScoringScreen({
   }
 
   // Scores the darts just thrown. "Jump off a bridge" throws all three as misses at once,
-  // and its voice line takes the place of the usual three-miss sounds.
+  // and its splash takes the place of the usual three-miss sounds.
   function handleDarts(types, { bridge = false } = {}) {
     if (setDone || isRoundScored) return;
     unlockAudio();
@@ -116,7 +116,7 @@ export default function ScoringScreen({
     let specialSoundPlayed = false;
 
     if (bridge) {
-      playBridgeVoice();
+      playBridgeSplash();
       specialSoundPlayed = true;
     }
 
@@ -156,7 +156,7 @@ export default function ScoringScreen({
       let soundDelayMs = 0;
 
       if (bridge) {
-        soundDelayMs = BRIDGE_VOICE_MS;
+        soundDelayMs = BRIDGE_SOUND_MS;
       } else if (isCurse) {
         playSound('curse');
         specialSoundPlayed = true;
